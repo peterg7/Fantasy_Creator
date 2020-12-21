@@ -240,10 +240,10 @@ class TimelineView(qtw.QGraphicsView):
 
         for entry in TimelineView.CharacterList:
             entry.shiftClocks(reorder)
-            # entry.updateInterval()
+
         for entry in TimelineView.EventList:
             entry.shiftClocks(reorder)
-            # entry.updateInterval()
+
         self.fitWithBorder()
 
 
@@ -670,8 +670,11 @@ class TimelineView(qtw.QGraphicsView):
                 item = self.scene.focusItem()
                 if isinstance(item, (CharacterView, EntryView)):
                     item.close()
-            elif self.views:
-                view = self.views[-1]
+            elif self.char_views:
+                view = self.char_views[-1]
+                view.close()
+            elif self.event_views:
+                view = self.event_views[-1]
                 view.close()
         super(TimelineView, self).keyPressEvent(event)
     

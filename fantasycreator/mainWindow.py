@@ -32,6 +32,7 @@ from characterLookup import LookUpTableModel, LookUpTableView
 from materializer import Materializer
 from storyTime import TimeConstants, Time
 from aboutWindow import AboutWindow
+from bugReporter import BugReporter
 from flags import LAUNCH_MODE
 
 # External resources
@@ -222,6 +223,12 @@ class MainWindow(qtw.QMainWindow):
             'Help',
             self,
             triggered=lambda: self.statusBar().showMessage('Sorry, no help yet!', 5000)
+        ))
+
+        bug_action = help_menu.addAction(qtw.QAction(
+            'Report Bug',
+            self,
+            triggered=self.reportBug
         ))
 
         self.preferences_act = help_menu.addAction('Preferences')
@@ -680,6 +687,10 @@ class MainWindow(qtw.QMainWindow):
         self.pref_window.pref_change.connect(self.handlePreferenceChange)
         self.pref_window.show()
     
+    def reportBug(self):
+        self.bug_reporter = BugReporter(self)
+        self.bug_reporter.show()
+
     def launchAboutWindow(self):
         self.about_window = AboutWindow(self)
         self.about_window.show()

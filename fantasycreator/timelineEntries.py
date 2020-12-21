@@ -340,7 +340,14 @@ class TimelineEventEntry(TimelineEntry):
         start_proxy.setVisible(False)
         self.year_labels.append(start_proxy)
 
-        if self.start != self.end:
+        if self.start == self.end:
+            start_proxy.setPos(
+                    start_proxy.x(), 
+                    start_proxy.y() - self.name_proxy.preferredHeight()
+                )
+            self.year_labels.append(None)
+        
+        else:
             end_proxy = qtw.QGraphicsProxyWidget(self)
             end_label = qtw.QLabel()
             end_label.setAttribute(qtc.Qt.WA_TranslucentBackground)
@@ -354,15 +361,17 @@ class TimelineEventEntry(TimelineEntry):
             self.year_labels.append(end_proxy)
             end_proxy.setVisible(False)
 
-            if start_proxy.collidesWithItem(end_proxy):
-                del end_proxy
+            if start_proxy.collidesWithItem(self.name_proxy) or \
+                                    end_proxy.collidesWithItem(self.name_proxy):
+                start_proxy.setPos(
+                    start_proxy.x() - name_label.width()/2, 
+                    start_proxy.y() - self.name_proxy.preferredHeight()
+                )
+                end_proxy.setPos(
+                    end_proxy.x() + name_label.width()/2,
+                    end_proxy.y() - self.name_proxy.preferredHeight()
+                )
 
-        else:
-            self.year_labels.append(None)
-
-        if start_proxy.collidesWithItem(self.name_proxy):
-            start_proxy.setPos(start_proxy.x(), start_proxy.y() - self.name_proxy.preferredHeight())
-        
         self.buildShape()
         self.setX(self.materializer.mapTime(start_date))
         # self.setTime(start_date)
@@ -378,28 +387,79 @@ class TimelineEventEntry(TimelineEntry):
         width = self.materializer.mapTimeRange(self.end, self.start)
         self.display_rect = qtc.QRectF(0, 0, width, self.ENTRY_HEIGHT)
 
-        self.name_proxy.setPos(self.display_rect.center().x() - self.name_proxy.widget().width()/2, 
-                                self.display_rect.top() - self.name_proxy.widget().height())
+        self.name_proxy.setPos(
+            self.display_rect.center().x() - self.name_proxy.widget().width()/2, 
+            self.display_rect.top() - self.name_proxy.widget().height()
+        )
 
-        self.year_labels[0].setPos(self.display_rect.topLeft().x() - self.year_labels[0].widget().width()/2, 
-                                self.display_rect.topLeft().y() - self.year_labels[0].widget().height())        
-        if self.year_labels[0].collidesWithItem(self.name_proxy):
-            self.year_labels[0].setPos(self.year_labels[0].x(), self.year_labels[0].y() - self.name_proxy.preferredHeight())
-
-        if self.year_labels[1]:
-            self.year_labels[1].setPos(self.display_rect.topRight().x() - self.year_labels[1].widget().width()/2, 
-                                        self.display_rect.topRight().y() - self.year_labels[1].widget().height())
-            if self.year_labels[1].collidesWithItem(self.name_proxy):
-                self.year_labels[1].setPos(self.year_labels[1].x(), self.year_labels[1].y() - self.name_proxy.preferredHeight())
+        if self.start == self.end:
+            self.year_labels[0].setPos(
+                self.display_rect.topLeft().x() - self.year_labels[0].widget().width()/2, 
+                self.display_rect.topLeft().y() - self.name_proxy.preferredHeight() -
+                    self.year_labels[0].widget().height()
+            )
             
-            if self.year_labels[0].collidesWithItem(self.year_labels[1]):
-                midline = self.display_rect.center().x()
-                min_spacer = 10
-                max_spacer = 10
-                self.year_labels[0].setPos(midline - min_spacer - self.year_labels[0].widget().width(), 
-                                    self.year_labels[0].y())
-                self.year_labels[1].setPos(midline + max_spacer, 
-                                    self.year_labels[1].y())
+            if self.year_labels[1]:
+                del self.year_labels[1]
+                self.year_labels.append(None)
+            else:
+                self.year_labels[1] = None
+        
+        else:
+            if not self.year_labels[1]:
+                end_proxy = qtw.QGraphicsProxyWidget(self)
+                end_label = qtw.QLabel()
+                end_label.setAttribute(qtc.Qt.WA_TranslucentBackground)
+                end_label.setFont(self.font)
+                end_label.setText(str(end_date))
+                end_label.adjustSize()
+                end_proxy.setWidget(end_label)
+                end_proxy.setPos(self.display_rect.topRight().x() - end_label.width()/2, 
+                                self.display_rect.topRight().y() - end_label.height())
+                self.year_labels[1] = end_proxy
+                end_proxy.setVisible(False)
+
+            if self.year_labels[0].collidesWithItem(self.name_proxy) or \
+                                    self.year_labels[1].collidesWithItem(self.name_proxy):
+                self.year_labels[0].setPos(
+                    self.year_labels[0].x() - self.name_proxy.widget().width()/2, 
+                    self.year_labels[0].y() - self.name_proxy.preferredHeight()
+                )
+                self.year_labels[1].setPos(
+                    self.year_labels[1].x() + self.name_proxy.widget().width()/2,
+                    self.year_labels[1].y() - self.name_proxy.preferredHeight()
+                )
+
+            else:
+                self.year_labels[0].setPos(
+                    self.year_labels[0].x(),
+                    self.display_rect.topLeft().y() - self.year_labels[0].widget().height()
+                )
+
+        # self.year_labels[0].setPos(
+        #     self.display_rect.topLeft().x() - self.year_labels[0].widget().width()/2, 
+        #     self.display_rect.topLeft().y() - self.year_labels[0].widget().height()
+        # )        
+        # if self.year_labels[0].collidesWithItem(self.name_proxy):
+        #     self.year_labels[0].setPos(
+        #         self.year_labels[0].x(), 
+        #         self.year_labels[0].y() - self.name_proxy.preferredHeight()
+        #     )
+
+        # if self.year_labels[1]:
+        #     self.year_labels[1].setPos(self.display_rect.topRight().x() - self.year_labels[1].widget().width()/2, 
+        #                                 self.display_rect.topRight().y() - self.year_labels[1].widget().height())
+        #     if self.year_labels[1].collidesWithItem(self.name_proxy):
+        #         self.year_labels[1].setPos(self.year_labels[1].x(), self.year_labels[1].y() - self.name_proxy.preferredHeight())
+            
+        #     if self.year_labels[0].collidesWithItem(self.year_labels[1]):
+        #         midline = self.display_rect.center().x()
+        #         min_spacer = 10
+        #         max_spacer = 10
+        #         self.year_labels[0].setPos(midline - min_spacer - self.year_labels[0].widget().width(), 
+        #                             self.year_labels[0].y())
+        #         self.year_labels[1].setPos(midline + max_spacer, 
+        #                             self.year_labels[1].y())
         
         self.buildShape()
         self.setTime(self.start)

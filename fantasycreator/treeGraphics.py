@@ -792,7 +792,9 @@ class TreeView(qtw.QGraphicsView):
         # name, ok = qtw.QInputDialog.getText(self, "New Family", "Enter a family name:")
         name, ok = UserLineInput.requestInput("New Family", "Enter a family name:", self)
         if ok:
+            CharacterCreator.FAMILY_ITEMS.append(name)
             self.new_char_dialog = CharacterCreator(self)
+            self.new_char_dialog.family_select.setCurrentText(name)
             self.new_char_dialog.submitted.connect(lambda d: self.add_new_family([d], name, fam_type=FAM_TYPE.ENDPOINT))
             self.new_char_dialog.show()
         else:

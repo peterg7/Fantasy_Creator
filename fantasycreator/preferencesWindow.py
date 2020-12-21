@@ -48,9 +48,9 @@ class PreferencesWindow(qtw.QDialog):
         self.stack.addWidget(self.general_stack)
         self.stack.addWidget(self.mechanics_stack)
         self.stack.addWidget(self.tree_stack)
-        self.stack.addWidget(self.timeline_stack)
-        self.stack.addWidget(self.map_stack)
-        self.stack.addWidget(self.scroll_stack)
+        # self.stack.addWidget(self.timeline_stack)
+        # self.stack.addWidget(self.map_stack)
+        # self.stack.addWidget(self.scroll_stack)
 
         pref_layout.addWidget(self.listMenu)
         pref_layout.addWidget(self.stack)

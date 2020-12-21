@@ -58,10 +58,10 @@ class WelcomeWindow(qtw.QDialog):
 
         heading = qtw.QLabel('Fantasy Creator')
         heading.setAttribute(qtc.Qt.WA_TranslucentBackground)
-        heading_font = qtg.QFont('Apple Chancery', 100, qtg.QFont.ExtraBold)
+        heading_font = qtg.QFont('Apple Chancery', 105, qtg.QFont.ExtraBold)
         heading.setFont(heading_font)
         heading.setAlignment(qtc.Qt.AlignCenter)
-        heading.setStyleSheet("QLabel {color : #ebbc00}")
+        heading.setStyleSheet("QLabel {color : #ffa217}")
         layout.addWidget(heading, 1, 1, 2, 6)
 
         options_font = qtg.QFont('Baskerville', 25)
