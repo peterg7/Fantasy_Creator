@@ -81,8 +81,6 @@ class TreeView(qtw.QGraphicsView):
         self.current_factor = 1
         self.zoomStatus = 0
         self.zoom_tracker = 0 
-        # TreeView.MIN_ZOOM = -8
-        # TreeView.MAX_ZOOM = 8
         self.char_selection_timeout = 10000 # in ms
         self.char_views = []
         self._pan = False
@@ -109,7 +107,6 @@ class TreeView(qtw.QGraphicsView):
             family.add_parent.connect(self.addParent)
             family.delete_fam.connect(self.delete_family)
             
-            # if fam_id in TreeView.CURRENT_FAMILIES: #WARNING: not good place for constant
             family.set_grid()
             family.build_tree()
             self.scene.add_family_to_scene(family)
@@ -149,7 +146,6 @@ class TreeView(qtw.QGraphicsView):
         CharacterCreator.KINGDOM_ITEMS.extend(x for x in kingdoms)
         CharacterCreator.KINGDOM_ITEMS.append('New...')
         CharacterCreator.FAMILY_ITEMS.extend(x for x in families)
-        # CharacterCreator.FAMILY_ITEMS.append('New...')
 
 
     def assembleTrees(self):

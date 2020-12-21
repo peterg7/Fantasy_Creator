@@ -5,6 +5,8 @@ from PyQt5 import QtCore as qtc
 
 # Built-in Packages
 from datetime import datetime
+import smtplib
+
 
 class BugReporter(qtw.QDialog):
 
@@ -22,7 +24,7 @@ class BugReporter(qtw.QDialog):
         self.bug_title.setPlaceholderText('Title')
         self.bug_title.setFont(qtg.QFont('Baskerville', 22))
 
-        self.timestamp_label = qtw.QLabel(str(datetime.now()))
+        self.timestamp_label = qtw.QLabel(str(datetime.now().strftime('%c')))
         self.timestamp_label.setFont(qtg.QFont('Baskerville', 16))
 
         self.crash_button = qtw.QCheckBox('Causes a\nCrash?')
@@ -62,4 +64,23 @@ class BugReporter(qtw.QDialog):
     def onSubmit(self):
         message = self.bug_title.text() + '\n' + self.description_entry.toPlainText()
         print(message)
+        self.sendReport()
         self.close()
+    
+    def sendReport(self):
+        sender_addr = 'fantasycreatorbot@gmail.com'
+        sender_pswd = 'GYjF@&-y%P5y'
+        receiver_addr = 'pgish97@gmail.com'
+        subject = f'Bug: {self.bug_title.text()}'
+        
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(sender_addr, sender_pswd)
+        message = f'''Subject:{self.bug_title.text()}\n
+        {self.timestamp_label.text()}\t{'Crash' if self.crash_button.isChecked() else 'No Crash'}\n
+        {self.description_entry.toPlainText()}'''
+        server.sendmail(sender_addr, receiver_addr, message)
+        server.close()
+

@@ -71,7 +71,7 @@ class LookUpTableView(qtw.QTableView):
     @qtc.pyqtSlot(qtc.QItemSelection, qtc.QItemSelection)
     def selectionChanged(self, selected, deselected):
         if self.selectionModel().selectedRows():
-            index = self.selectionModel().selectedRows()[0] #WARNING Only take first row
+            index = self.selectionModel().selectedRows()[0] # WARNING Only take first row
             self.char_selected.emit(self.model().data(index, qtc.Qt.DisplayRole))
         super(LookUpTableView, self).selectionChanged(selected, deselected)
     

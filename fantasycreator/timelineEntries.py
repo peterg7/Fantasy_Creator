@@ -887,7 +887,7 @@ class EventCreator(qtw.QDialog):
         if self._event['end']:
             self.end_date.setText(str(self._event['end']))
         self.type_select.setCurrentText(self._event['event_type'])
-        print(self._event['location'])
+        # print(self._event['location'])
         self.location_select.setCurrentText(self._event['location'])
 
     
