@@ -182,7 +182,19 @@ class TreeControlPanel(qtw.QDockWidget):
             self.family_select.blockSignals(False)
             
         elif flag == SELECTIONS_UPDATE.ADDED_KINGDOM:
-            print('Update selection, added kingdom - in construction')
+            model = self.kingdom_select.model()
+            index = self.kingdom_select.count()
+            self.kingdom_select.blockSignals(True)
+            for val in value_changes:
+                self.kingdom_select.addItem(val['kingdom_name'])
+                item = model.item(index)
+                item.setCheckable(True)
+                model.setData(model.index(index, 0),
+                                qtc.Qt.Checked,
+                                qtc.Qt.CheckStateRole)
+                index += 1
+            self.kingdom_select.blockSignals(False)
+
         elif flag == SELECTIONS_UPDATE.REMOVED_KINGDOM:
             print('Update selection, removed kingdom - in construction')
 

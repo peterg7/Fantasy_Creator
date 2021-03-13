@@ -195,9 +195,6 @@ class Family(qtw.QGraphicsObject):
 
     def getRootPos(self):
         return self._tree_loc
-    
-    def getName(self):
-        return self._name
 
     def setName(self, name):
         self._name = name
@@ -281,7 +278,7 @@ class Family(qtw.QGraphicsObject):
                     partners = [c.getData() for c in char_node.getMates()]
                     for target in partners:
                         self.scene().removeItem(target)
-                        partner_removal = self.removeMate(char, target)
+                        # partner_removal = self.removeMate(char, target)
                         # self.remove_partnership[uuid.UUID, uuid.UUID].emit(char_id, target.getID())
                         self.partners.remove(target)
                         target.setParent(None)

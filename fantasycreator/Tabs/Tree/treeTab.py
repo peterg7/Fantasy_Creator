@@ -49,7 +49,11 @@ class TreeTab(qtw.QMainWindow):
         # self.control_panel.topLevelChanged.connect(lambda x: self.handlePanelViz(not x))
         self.control_panel.dockLocationChanged.connect(self.handlePanelLoc)
 
-        self.treeview.families_added.connect(self.control_panel.updateSelections)
+        # Connect signals
+        self.treeview.familiesAdded.connect(self.control_panel.updateSelections)
+        self.treeview.familiesRemoved.connect(self.control_panel.updateSelections)
+        self.treeview.kingdomsAdded.connect(self.control_panel.updateSelections)
+        self.treeview.kingdomsRemoved.connect(self.control_panel.updateSelections)
         self.treeview.requestFilterChange.connect(self.control_panel.updateFilters)
 
         # Create toolbar
@@ -76,14 +80,15 @@ class TreeTab(qtw.QMainWindow):
         )
         add_char_act.triggered.connect(self.treeview.createFamily)
         
-        self.toolbar.addSeparator()
+        self.add_add_separator = self.toolbar.addSeparator()
 
         # Add character creation action
-        add_char_act = self.toolbar.addAction(
+        self.add_char_act = self.toolbar.addAction(
             qtg.QIcon(':/toolbar-icons/add_char_icon.png'),
             'Add Character'
         )
-        add_char_act.triggered.connect(self.treeview.createCharacter)
+        self.add_char_act.triggered.connect(self.treeview.createCharacter)
+        self.treeview.hideAddCharacter.connect(self.setCharAddBtn)
 
         self.add_del_separator = self.toolbar.addSeparator()
 
@@ -225,14 +230,15 @@ class TreeTab(qtw.QMainWindow):
 
     @qtc.pyqtSlot(bool)
     def setCharDeleteBtn(self, state):
-        if not state:
-            self.add_del_separator.setVisible(False)
-            self.del_char_act.setVisible(False)
-            self.del_char_act.setEnabled(False)
-        else:
-            self.add_del_separator.setVisible(True)
-            self.del_char_act.setVisible(True)
-            self.del_char_act.setEnabled(True)
+        self.add_del_separator.setVisible(state)
+        self.del_char_act.setVisible(state)
+        self.del_char_act.setEnabled(state)
+
+    @qtc.pyqtSlot(bool)
+    def setCharAddBtn(self, state):
+        self.add_add_separator.setVisible(state)
+        self.add_char_act.setVisible(state)
+        self.add_char_act.setEnabled(state)
 
     @qtc.pyqtSlot()
     def saveRequest(self):

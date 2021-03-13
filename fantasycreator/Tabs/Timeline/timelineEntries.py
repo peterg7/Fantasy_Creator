@@ -512,10 +512,9 @@ class MainTimelineAxis(qtw.QGraphicsObject):
     AXIS_HEIGHT = 60
     # YEAR_WEIGHT = 10
 
-    def __init__(self, minDate, maxDate, parent=None):
+    def __init__(self, minDate, maxDate, axisPadding, parent=None):
         super(MainTimelineAxis, self).__init__(parent)
         self.materializer = Materializer()
-        
         self.min_date = minDate
         self.max_date = maxDate
         # self.interval = self.materializer.getTimeDifference(maxDate, minDate)
@@ -528,7 +527,7 @@ class MainTimelineAxis(qtw.QGraphicsObject):
         # TimelineCharEntry.ABS_ZERO = minYear
         # self.display_rect = qtc.QRectF(self.AXIS_PADDING, (2*self.AXIS_HEIGHT), 
                             # (self.YEAR_WEIGHT * self.interval) - (2*self.AXIS_PADDING), self.AXIS_HEIGHT)
-        width =  self.materializer.mapTimeRange(self.max_date, self.min_date)
+        width = self.materializer.mapTimeRange(self.max_date, self.min_date)
         #self.materializer.TIMELINE_AXIS_PADDING
         self.display_rect = qtc.QRectF(0, 2 * self.AXIS_HEIGHT, width, self.AXIS_HEIGHT)
 

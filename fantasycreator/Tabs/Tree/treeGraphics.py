@@ -1,3 +1,19 @@
+''' Controls the tree graphics. Handles user input & display of the tree
+
+Module for graphics of the tree tab. Controls all aspects of the tree including
+adding/removing characters, creating relationships, creating families, etc. All
+data is synced with the database and therefore all other tabs. 
+
+Copyright (c) 2020 Peter C Gish
+
+See the MIT License (MIT) for more information. You should have received a copy
+of the MIT License along with this program. If not, see 
+<https://www.mit.edu/~amini/LICENSE.md>.
+'''
+__author__ = "Peter C Gish"
+__date__ = "3/13/21"
+__maintainer__ = "Peter C Gish"
+__version__ = "1.0.1"
 
 
 # PyQt 
@@ -35,27 +51,31 @@ class TreeView(qtw.QGraphicsView):
     addedChars = qtc.pyqtSignal(list)
     removedChars = qtc.pyqtSignal(list)
     updatedChars = qtc.pyqtSignal(list)
-    temp_statusbar_msg = qtc.pyqtSignal(str, int)
-    families_removed = qtc.pyqtSignal(int, list)
-    families_added = qtc.pyqtSignal(int, list)
-    scene_clicked = qtc.pyqtSignal(qtc.QPoint)
+    tempStatusbarMsg = qtc.pyqtSignal(str, int)
+    familiesRemoved = qtc.pyqtSignal(int, list)
+    familiesAdded = qtc.pyqtSignal(int, list)
+    kingdomsAdded = qtc.pyqtSignal(int, list)
+    kingdomsRemoved = qtc.pyqtSignal(int, list)
+    sceneClicked = qtc.pyqtSignal(qtc.QPoint)
     requestFilterChange = qtc.pyqtSignal(int, int)
+
+    hideAddCharacter = qtc.pyqtSignal(bool)
 
     zoomChanged = qtc.pyqtSignal(int)
     setCharDel = qtc.pyqtSignal(bool)
 
-
     MasterFamilies = {}
     CharacterList = HashList() # Stores all CHARACTER objects
-
     #TODO: FIX THESE -> need a better location 
     CURRENT_FAMILY_FLAGS = set()
-    TREE_DISPLAY = TREE_ICON_DISPLAY.IMAGE
     CURRENT_FAMILIES = set()
     CURRENT_KINGDOMS = set()
+
+    TREE_DISPLAY = TREE_ICON_DISPLAY.IMAGE
     CENTER_ANCHOR = qtc.QPointF(5000, 150)
     DFLT_VIEW = qtc.QRectF(4000, 150, 5000, 1000)
 
+    # Relative ounds for user zoom
     MIN_ZOOM = -8
     MAX_ZOOM = 8
 
@@ -91,262 +111,7 @@ class TreeView(qtw.QGraphicsView):
         self.last_mouse = None
         self.previous_families = set()
 
- 
-    ## Auxiliary Methods ##
-
-    def init_tree_view(self):
-        print('Building tree...')
-        self.assembleTrees()
-        for fam_id, family in TreeView.MasterFamilies.items():
-            family.setParent(self)
-            family.edit_char.connect(self.add_character_edit)
-            family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
-            family.remove_character.connect(self.remove_character)
-            family.add_partner.connect(self.createPartnership)
-            family.remove_partnership.connect(self.divorceProctor)
-            family.add_parent.connect(self.addParent)
-            family.delete_fam.connect(self.delete_family)
-            
-            family.set_grid()
-            family.build_tree()
-            self.scene.add_family_to_scene(family)
-            self.addedChars.emit([char.getID() for char in family.getAllMembers()])
-            TreeView.CharacterList.add(*family.getMembersAndPartners())
-        
-        self.setTreeSpacing()
-        self.scene.update()
-        self.viewport().update()
-    
-    def init_char_dialogs(self):
-        sexes = set()
-        races = set()
-        kingdoms = set()
-        families = set()
-        for char in self.character_db:
-            sexes.add(char['sex'])
-            races.add(char['race'])
-        for kingdom in self.kingdoms_db:
-            kingdoms.add(kingdom['kingdom_name'])
-        for fam in self.families_db:
-            families.add(fam['fam_name'])
-
-        if '' in sexes:
-            sexes.remove('')
-        if '' in races:
-            races.remove('')
-        if '' in kingdoms:
-            kingdoms.remove('')
-        if '' in families:
-            families.remove('')
-
-        CharacterCreator.SEX_ITEMS.extend(x for x in sexes)
-        CharacterCreator.SEX_ITEMS.append('Other...')
-        CharacterCreator.RACE_ITEMS.extend(x for x in races)
-        CharacterCreator.RACE_ITEMS.append('Other...')
-        CharacterCreator.KINGDOM_ITEMS.extend(x for x in kingdoms)
-        CharacterCreator.KINGDOM_ITEMS.append('New...')
-        CharacterCreator.FAMILY_ITEMS.extend(x for x in families)
-
-
-    def assembleTrees(self):
-        for char_dict in self.character_db:
-            graphic_char = Character(char_dict)
-
-            rom_fam_ids = [x['rom_id'] for x in char_dict['partnerships']]
-            blood_fam_id = char_dict['fam_id']
-
-            # Create romance family
-            for rom_fam_id in rom_fam_ids:
-                if rom_fam_id and self.families_db.contains(where('fam_id') == rom_fam_id):
-                    
-                    if rom_fam_id not in TreeView.MasterFamilies.keys():
-                        graphic_char.setTreeID(rom_fam_id)
-                        TreeView.MasterFamilies[rom_fam_id] = Family([graphic_char], rom_fam_id)
-                    
-                    if graphic_char not in TreeView.MasterFamilies[rom_fam_id].getFirstGen():
-                        root_char = TreeView.MasterFamilies[rom_fam_id].getRoot()
-                        TreeView.MasterFamilies[rom_fam_id].setFirstGen(1, graphic_char, rom_fam_id)
-                
-            # Create blood family
-            if blood_fam_id and self.families_db.contains(where('fam_id') == blood_fam_id):
-                if blood_fam_id not in TreeView.MasterFamilies.keys(): #NOTE: Assume sorted order
-                    graphic_char.setTreeID(blood_fam_id)
-                    TreeView.MasterFamilies[blood_fam_id] = Family([graphic_char], blood_fam_id)
-
-
-            if char_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID'] or char_dict['parent_0'] == self.meta_db.all()[0]['TERM_ID']:
-                continue
-
-            if char_dict['parent_0']:
-                TreeView.MasterFamilies[blood_fam_id].addChild(graphic_char, char_dict['parent_0'])
-
-            if char_dict['parent_1']:
-                TreeView.MasterFamilies[blood_fam_id].addChildRelationship(graphic_char, char_dict['parent_1'])
-
-        for f_id, fam in TreeView.MasterFamilies.items():
-            fam_record = self.families_db.get(where('fam_id') == f_id)
-            if fam_record:
-                fam.setName(fam_record['fam_name'])
-                fam.setType(fam_record['fam_type'])
-
-        self.connectFamilies()
-
-        # for fam in TreeView.MasterFamilies.values():
-        #     print(f'\nFam: {fam.getID()}')
-        #     for char in fam.getMembersAndPartners():
-        #         print(char, char.getTreeID())
-
-        # self.treetab.build_tree(TreeView.MasterFamilies, self.database, self.size())
-  
-    
-    def connectFamilies(self):
-        couples_record = self.character_db.search((where('partnerships') != []))
-        relationships = [x['partnerships'] for x in couples_record]
-        relationships = [couple for couples in relationships for couple in couples]
-        relationships.sort(key=lambda x: x['rom_id'])
-
-        for rom_id, couple in groupby(relationships, key=lambda x:x['rom_id']):
-            couple = tuple(couple)
-            partner1 = couple[0]
-            partner2 = couple[1]
-
-            fam1_id = self.character_db.get(where('char_id') == partner2['p_id'])['fam_id']
-            if fam1_id not in TreeView.MasterFamilies.keys():
-                fam1_id = rom_id
-            
-            fam2_id = self.character_db.get(where('char_id') == partner1['p_id'])['fam_id']
-            if fam1_id not in TreeView.MasterFamilies.keys():
-                fam2_id = rom_id
-
-            graphics_p1 = TreeView.MasterFamilies[fam1_id].getMember(partner2['p_id'])
-            graphics_p2 = TreeView.MasterFamilies[fam2_id].getMember(partner1['p_id'])
-
-            if rom_id in TreeView.MasterFamilies.keys():
-                if graphics_p2.getData() in graphics_p1.getMates():
-                    TreeView.MasterFamilies[fam1_id].addMate(graphics_p2.getData(), rom_id, graphics_p1.getData())
-                else:
-                    TreeView.MasterFamilies[fam2_id].addMate(graphics_p1.getData(), rom_id, graphics_p2.getData())
-                continue
-
-            # print(f'connecting {graphics_p1} and {graphics_p2} in {fam1_id}')
-            TreeView.MasterFamilies[fam1_id].addMate(graphics_p2.getData(), rom_id, graphics_p1.getData())
-            TreeView.MasterFamilies[fam2_id].addMate(graphics_p1.getData(), rom_id, graphics_p2.getData())
-
-
-
-    def connect_db(self, database):
-        # Create tables
-        self.meta_db = database.table('meta')
-        self.character_db = database.table('characters')
-        self.families_db = database.table('families')
-        self.kingdoms_db = database.table('kingdoms')
-        self.preferences_db = database.table('preferences')
-        self.entry_formatter = DataFormatter()
-
-        for family in self.families_db:
-            self.CURRENT_FAMILIES.add(family['fam_id'])
-        for kingdom in self.kingdoms_db:
-            self.CURRENT_KINGDOMS.add(kingdom['kingdom_id'])
-        
-    def setTreeSpacing(self):
-        fam_sizes = [(k, v.boundingRect()) for k,v in TreeView.MasterFamilies.items()]
-        fam_sizes.sort(key=lambda x: x[1].width(), reverse=True)
-        root_y = 0
-        root_x = 0
-        x_offset = 0
-        count = 0
-        for fam_id, size in fam_sizes:
-            root_loc = qtc.QPoint(root_x, root_y)
-            TreeView.MasterFamilies[fam_id].setPos(root_loc)
-            x_offset = np.power(-1, count) * (abs(x_offset) + size.width()*(2/3))
-            root_x = x_offset
-            count += 1
-
-
-    def updatePreferences(self):
-        if pref_record := self.preferences_db.get(where('tab') == 'tree'):
-            if val := pref_record.get('generation_spacing', None):
-                Family.FIXED_Y = val
-            if val := pref_record.get('sibling_spacing', None):
-                Family.FIXED_X = val
-            if val := pref_record.get('desc_dropdown', None):
-                Family.DESC_DROPDOWN = val
-            if val := pref_record.get('partner_spacing', None):
-                Family.PARTNER_SPACING = val
-            if val := pref_record.get('expand_factor', None):
-                Family.EXPAND_CONSTANT = val
-            if val := pref_record.get('offset_factor', None):
-                Family.OFFSET_CONSTANT = val
-            if val := pref_record.get('ruler_crown_size', None):
-                if val != Character.CROWN_HEIGHT:
-                #     for char in TreeView.CharacterList:
-                #         if char.ruler:
-                #             char.buildRulerPix()
-                #             if FAMILY_FLAGS.DISPLAY_RULERS in TreeView.CURRENT_FAMILY_FLAGS:
-                #                 char.showRuler(True)
-                    Character.CROWN_HEIGHT = val         
-            if val := pref_record.get('ruler_crown_img', None):
-                pass
-            if val := pref_record.get('char_img_width', None):
-                PictureEditor.CHAR_IMAGE_WIDTH = val
-            if val := pref_record.get('char_img_height', None):
-                PictureEditor.CHAR_IMAGE_HEIGHT = val
-            self.update_tree()
-
-
-
-    def update_tree(self):
-        self.scene.reset_scene()
-        for fam_id, family in TreeView.MasterFamilies.items():
-            if fam_id in TreeView.CURRENT_FAMILIES: #WARNING: not good place for constant
-                family.set_grid()  
-                family.build_tree()
-                if family not in self.scene.current_families:
-                    # family.initFirstGen()
-                    family.setParent(self)
-                    # self.addedChars.emit([char.getID() for char in family.getAllMembers()])
-                    family.initFirstGen()
-                    self.scene.add_family_to_scene(family)
-            else:
-                if family in self.scene.current_families:
-                    # self.removedChars.emit([char.getID() for char in family.getAllMembers()])
-                    self.scene.remove_family_from_scene(family) 
-                    family.setParent(None)
-        self.scene.update()
-        self.viewport().update()
-        # self.fitWithBorder()
-
-        # for char in TreeView.CharacterList:
-        #     print(char)
-
-
-    
-        
-
-    
-    def toggle_char_selecting(self):
-        self.selecting_char = False
-        self.temp_statusbar_msg.emit('', 100) # temporary way to clear message
-    
-    def toggle_panning(self, state):
-        self._pan = state
-        self._pan_act = state
-        self._mousePressed = False
-        if self._pan:
-            self.viewport().setCursor(qtc.Qt.OpenHandCursor)
-        else:
-            self.viewport().unsetCursor()
-    
-    @qtc.pyqtSlot()
-    def check_character_dlt_btn(self):
-        if not self.char_views:
-            self.setCharDel.emit(False)
-            CharacterView.CURRENT_SPAWN = qtc.QPoint(20, 50) # NOTE: Magic Number
-        else:
-            self.setCharDel.emit(True)
-    
-
-    ## Custom Slots ##
+    ##----------------------- Custom Slots ------------------------##
 
     @qtc.pyqtSlot(list)
     def updateChars(self, char_list):
@@ -405,38 +170,14 @@ class TreeView(qtw.QGraphicsView):
                     selected_item = self.scene.selectedItems()[0] # NOTE: only using "first" item
                     if isinstance(selected_item, Character):
                         self.add_character_edit(selected_item.getID())
-    
-    # @qtc.pyqtSlot(dict, qtc.QPointF)
-    def inspect_selection(self, point):
-        self.toggle_char_selecting()
-        if point:
-            selection = self.itemAt(point)
-            if not selection and self.scene.sceneRect().contains(point):
-                selection = self.mapToScene(point)
-            self.selected_char = selection
 
-
-    def requestCharacter(self, msg_prompt): # Wait for user to select a character
-        self.selecting_char = True
-        self.selected_char = None
-        print(msg_prompt)
-        
-        # AutoCloseMessageBox.showWithTimeout(3, msg_prompt)
-        prompt = CustomMsgBox(msg_prompt)
-        prompt.move(self.width()/2, 0)
-        self.scene_clicked.connect(prompt.close)
-        prompt.show()
-        
-        self.temp_statusbar_msg.emit(f'{msg_prompt}...', self.char_selection_timeout)
-        loop = qtc.QEventLoop()
-        self.scene_clicked.connect(loop.quit)
-        self.scene_clicked.connect(self.inspect_selection)
-        timer = qtc.QTimer()
-        timer.singleShot(self.char_selection_timeout, loop.quit)
-        loop.exec()
-        return self.selected_char
-
-        
+    @qtc.pyqtSlot()
+    def check_character_dlt_btn(self):
+        if not self.char_views:
+            self.setCharDel.emit(False)
+            CharacterView.CURRENT_SPAWN = qtc.QPoint(20, 50) # NOTE: Magic Number
+        else:
+            self.setCharDel.emit(True)
 
     @qtc.pyqtSlot(dict, Character)
     @qtc.pyqtSlot(dict, uuid.UUID)
@@ -658,139 +399,17 @@ class TreeView(qtw.QGraphicsView):
         # if char_type != CHAR_TYPE.PARTNER:
         self.update_tree()
     
-    
-    def add_new_family(self, first_gen, fam_name=None, fam_id=None, fam_type=FAM_TYPE.SUBSET, root_pt=None):    
-        if not fam_name:
-            if isinstance(first_gen[0], dict):
-                fam_name = first_gen[0].get('family', None)
-                if not fam_name:
-                    # fam_name, ok = qtw.QInputDialog.getText(self, "New Family", "Enter a family name:")
-                    fam_name, ok = UserLineInput.requestInput("New Family", "Enter a family name:", self)
-                    if not ok:
-                        return False
-        if not root_pt:
-            root_pt = self.mapToScene(self.viewport().rect().center())
-        fam_entry = self.entry_formatter.family_entry(fam_name, fam_type, fam_id)
-        fam_id = fam_entry['fam_id'] 
-        family_heads = []
-        self.families_db.insert(fam_entry) 
-
-        if isinstance(first_gen[0], Character):
-            for char in first_gen:
-                char_clone = Character(char.toDict())
-                char_clone.setTreeID(fam_id)
-                family_heads.append(char_clone) # CREATE CLONE
-
-        elif isinstance(first_gen[0], dict):
-            for index, char_dict in enumerate(first_gen):
-                formatted_dict = self.entry_formatter.char_entry(char_dict)
-                char_id = formatted_dict['char_id']
-
-                if self.character_db.contains(where('char_id') == char_id):
-                    # CREATE CLONE
-                    new_char = Character(formatted_dict)
-                    TreeView.CharacterList.add(new_char)
-
-                else:
-                    formatted_dict['fam_id'] = fam_id
-                    if not formatted_dict['parent_0']:
-                        formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
-                    
-                    self.character_db.insert(formatted_dict)
-                    new_char = Character(formatted_dict)
-                    TreeView.CharacterList.add(new_char)
-                    self.addedChars.emit([new_char.getID()])
-                
-                new_char.setTreeID(fam_id)                
-                family_heads.append(new_char)
-        
-        # if fam_type == FAM_TYPE.NULL_TERM:
-        #     family_heads[0].
-               
-        new_family = Family(first_gen=family_heads, family_id=fam_id, family_type=fam_type, family_name=fam_name, pos=root_pt)
-        TreeView.MasterFamilies[fam_id] = new_family
-        self.CURRENT_FAMILIES.add(fam_id)
-        CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
-
-        # Connect signals
-        new_family.setParent(self)
-        new_family.edit_char.connect(self.add_character_edit)
-        new_family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
-        new_family.remove_character.connect(self.remove_character)
-        new_family.delete_fam.connect(self.delete_family)
-        new_family.add_partner.connect(self.createPartnership)
-        new_family.add_parent.connect(self.addParent)
-        new_family.remove_partnership.connect(self.divorceProctor)
-
-        self.scene.add_family_to_scene(new_family)
-        new_family.set_grid()
-        new_family.build_tree()
-        
-        # Apply current flags
-        if FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
-            family_head = self.character_db.get(where('char_id') == family_heads[0].getID())
-            self.previous_families.add(new_family.getID())
-            if family_head['parent_0'] in TreeView.CharacterList:
-                self.CURRENT_FAMILIES.remove(new_family.getID())
-            else:
-                new_family.explodeFamily(True)
-        
-        if FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
-            new_family.setNameDisplay(False)
-        else:
-            new_family.setNameDisplay(True)
-        
-        if FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
-            new_family.includeFirstGen(True)
-        else:
-            new_family.includeFirstGen(False)
-
-        self.families_added.emit(SELECTIONS_UPDATE.ADDED_FAM, [fam_entry])
-        return True
-
-
-    def get_kingdom(self, kingdom_name=None, kingdom_id=None):
-        if kingdom_name:
-            kingdom_record = self.kingdoms_db.get(where('kingdom_name') == kingdom_name)
-            if not kingdom_record:
-                print('PROBLEM: unrecognized kingdom, make new??')
-            else:
-                return kingdom_record['kingdom_id']
-        elif kingdom_id:
-            kingdom_record = self.kingdoms_db.get(where('kingdom_id') == kingdom_id)
-            if not kingdom_record:
-                print('PROBLEM: unrecognized kingdom, make new??')
-            else:
-                return kingdom_record['kingdom_name']
-        else:
-            return self.kingdoms_db.get(where('kingdom_name') == 'None')
-
-
-    def get_family(self, fam_name=None, fam_id=None):
-        if fam_name:
-            fam_record = self.families_db.get(where('fam_name') == fam_name)
-            if not fam_record:
-                print('PROBLEM: unrecognized family, make new??')
-            else:
-                return fam_record['fam_id']
-        elif fam_id:
-            fam_record = self.families_db.get(where('fam_id') == fam_id)
-            if not fam_record:
-                print('PROBLEM: unrecognized family, make new??')
-            else:
-                return fam_record['fam_name']
-        else:
-            return self.families_db.get(where('fam_name') == 'None')
-    
 
     @qtc.pyqtSlot()
     def createFamily(self, parent=None):
-        # name, ok = qtw.QInputDialog.getText(self, "New Family", "Enter a family name:")
         name, ok = UserLineInput.requestInput("New Family", "Enter a family name:", self)
         if ok:
-            CharacterCreator.FAMILY_ITEMS.append(name)
+            # CharacterCreator.FAMILY_ITEMS.append(name)
             self.new_char_dialog = CharacterCreator(self)
+            if name not in CharacterCreator.FAMILY_ITEMS:
+                CharacterCreator.FAMILY_ITEMS.insert(-1, name)
             self.new_char_dialog.family_select.setCurrentText(name)
+            self.new_char_dialog.family_select.setDisabled(True)
             self.new_char_dialog.submitted.connect(lambda d: self.add_new_family([d], name, fam_type=FAM_TYPE.ENDPOINT))
             self.new_char_dialog.show()
         else:
@@ -804,90 +423,6 @@ class TreeView(qtw.QGraphicsView):
         self.selection_window.show()
 
 
-    def matchMaker(self, char_1_id, char_2=None):
-        if not char_2:
-            char_2 = self.requestCharacter("Please select a partner")
-            if not isinstance(char_2, Character):
-                return
-        char_1 = TreeView.CharacterList.search(char_1_id)
-        if not char_1:
-            return
-        char_1 = char_1[0]
-
-        if char_1_id == char_2.getID():
-            print("Can't be your own partner!")
-            return
-        
-        char_1_record = self.character_db.get(where('char_id') == char_1_id)
-        char_2_record = self.character_db.get(where('char_id') == char_2.getID())
-
-        # if len(char_1_record['partnerships']) > 1:
-        #     print()
-        
-        fam_1_ids = []
-        for instance in TreeView.CharacterList.search(char_1_id):
-            # print(instance.getName(), instance.getID(), instance.getTreeID())
-            fam_1_ids.append(instance.getTreeID())
-
-        fam_2_ids = []
-        for instance in TreeView.CharacterList.search(char_2.getID()):
-            # print(instance.getName(), instance.getID(), instance.getTreeID())
-            fam_2_ids.append(instance.getTreeID())
-
-        rom_id = None
-        if char_1_record['partnerships']:
-            if len(char_1_record['partnerships']) == 1:
-                if char_1_record['partnerships'][0]['p_id'] == self.meta_db.all()[0]['NULL_ID']:
-                    rom_id = char_1_record['partnerships'][0]['rom_id']
-                    self.character_db.update({'partnerships': []}, where('char_id') == char_1_record['char_id'])
-                else:
-                    print("Replacing partners is not currently supported")
-                    return
-            else:
-                print('Currently can only have one partner at a time.')
-                return
-
-        if char_2_record['partnerships']:
-            if len(char_2_record['partnerships']) == 1:
-                if char_2_record['partnerships'][0]['p_id'] == self.meta_db.all()[0]['NULL_ID']:
-                    if rom_id:
-                        print("Can't currently combine two divorced families")
-                        return
-                    rom_id = char_2_record['partnerships'][0]['rom_id']
-                    self.character_db.update({'partnerships': []}, where('char_id') == char_2_record['char_id'])
-                else:
-                    print("Replacing partners is not currently supported")
-                    return
-            else:
-                print('Currently can only have one partner at a time.')
-                return
-
-
-
-        char_1_entry = self.entry_formatter.partnership_entry(char_1.getID(), rom_id)
-        rom_id = char_1_entry['rom_id']
-        char_2_entry = self.entry_formatter.partnership_entry(char_2.getID(), rom_id)
-
-        for fam_id in fam_1_ids:
-            try:
-                mate = self.MasterFamilies[fam_id].addMate(char_2, rom_id, char_1)
-                TreeView.CharacterList.add(mate)
-            except:
-                pass
-        for fam_id in fam_2_ids:
-            try:
-                mate = self.MasterFamilies[fam_id].addMate(char_1, rom_id, char_2)
-                TreeView.CharacterList.add(mate)
-            except:
-                pass
-        
-        char_1_relationships = char_1_record['partnerships'] + [char_1_entry]
-        self.character_db.update({'partnerships': char_1_relationships}, where('char_id') == char_1.getID())
-        char_2_relationships = char_2_record['partnerships'] + [char_2_entry]
-        self.character_db.update({'partnerships': char_2_relationships }, where('char_id') == char_2.getID())
-        self.update_tree()
-
-
     @qtc.pyqtSlot(uuid.UUID)
     @qtc.pyqtSlot(uuid.UUID, uuid.UUID)
     def divorceProctor(self, char1_id, char2_id=None):
@@ -897,7 +432,7 @@ class TreeView(qtw.QGraphicsView):
         else:
             rom_record = char_record['partnerships']
             if not rom_record:
-                self.temp_statusbar_msg.emit(f"No partners to remove!", 2000)
+                self.tempStatusbarMsg.emit(f"No partners to remove!", 2000)
                 return
             if len(rom_record) == 1:
                 partnership = rom_record[0]
@@ -926,7 +461,7 @@ class TreeView(qtw.QGraphicsView):
                             TreeView.CharacterList.remove(i)
                             break
             else:
-                self.temp_statusbar_msg.emit(f"In construction", 2000)
+                self.tempStatusbarMsg.emit(f"In construction", 2000)
                 return
         
         fam_divorce = False
@@ -1052,7 +587,7 @@ class TreeView(qtw.QGraphicsView):
             self.divorceProctor(char_id, partner_id)
         if char_removal:
             print(f"Removed {char_dict['name']} from tree")
-            self.temp_statusbar_msg.emit(f"Removed {char_dict['name']}", 2000)
+            self.tempStatusbarMsg.emit(f"Removed {char_dict['name']}", 2000)
             self.removedChars.emit([char_id])
             self.character_db.remove(where('char_id') == char_id)
 
@@ -1075,7 +610,7 @@ class TreeView(qtw.QGraphicsView):
             return
 
         # fam_name = self.families_db.get(where('fam_id') == fam_id)['fam_name']
-        self.temp_statusbar_msg.emit(f"Removed {fam_name}", 3000)
+        self.tempStatusbarMsg.emit(f"Removed {fam_name}", 3000)
         if fam_id in self.CURRENT_FAMILIES:
             self.CURRENT_FAMILIES.remove(fam_id)
         fam = self.MasterFamilies[fam_id]
@@ -1089,7 +624,7 @@ class TreeView(qtw.QGraphicsView):
         del fam
         del self.MasterFamilies[fam_id]
         self.families_db.remove(where('fam_id') == fam_id)
-        self.families_added.emit(SELECTIONS_UPDATE.REMOVED_FAM, [fam_entry])
+        self.familiesAdded.emit(SELECTIONS_UPDATE.REMOVED_FAM, [fam_entry])
     
     @qtc.pyqtSlot(uuid.UUID)
     @qtc.pyqtSlot(Character)
@@ -1144,6 +679,477 @@ class TreeView(qtw.QGraphicsView):
             self.edit_window.submitted.connect(self.receiveCharacterUpdate)
             # self.edit_window.submitted.connect(lambda d: self.updatedChars.emit([d['char_id']]))
             self.edit_window.show()
+
+    ##----------------------- Auxiliary Methods ------------------------##
+
+    def init_tree_view(self):
+        print('Building tree...')
+        self.assembleTrees()
+
+        if not TreeView.MasterFamilies:
+            self.hideAddCharacter.emit(False)
+        else:
+            self.hideAddCharacter.emit(True)
+            for fam_id, family in TreeView.MasterFamilies.items():
+                family.setParent(self)
+                family.edit_char.connect(self.add_character_edit)
+                family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
+                family.remove_character.connect(self.remove_character)
+                family.add_partner.connect(self.createPartnership)
+                family.remove_partnership.connect(self.divorceProctor)
+                family.add_parent.connect(self.addParent)
+                family.delete_fam.connect(self.delete_family)
+                
+                family.set_grid()
+                family.build_tree()
+                self.scene.add_family_to_scene(family)
+                self.addedChars.emit([char.getID() for char in family.getAllMembers()])
+                TreeView.CharacterList.add(*family.getMembersAndPartners())
+        
+        self.setTreeSpacing()
+        self.scene.update()
+        self.viewport().update()
+    
+    def init_char_dialogs(self):
+        sexes = set()
+        races = set()
+        kingdoms = set()
+        families = set()
+        for char in self.character_db:
+            sexes.add(char['sex'])
+            races.add(char['race'])
+        for kingdom in self.kingdoms_db:
+            kingdoms.add(kingdom['kingdom_name'])
+        for fam in self.families_db:
+            families.add(fam['fam_name'])
+
+        if '' in sexes:
+            sexes.remove('')
+        if '' in races:
+            races.remove('')
+        if '' in kingdoms:
+            kingdoms.remove('')
+        if '' in families:
+            families.remove('')
+
+        CharacterCreator.SEX_ITEMS.extend(x for x in sexes)
+        CharacterCreator.SEX_ITEMS.append('Other...')
+        CharacterCreator.RACE_ITEMS.extend(x for x in races)
+        CharacterCreator.RACE_ITEMS.append('Other...')
+        CharacterCreator.KINGDOM_ITEMS.extend(x for x in kingdoms)
+        CharacterCreator.KINGDOM_ITEMS.append('New...')
+        CharacterCreator.FAMILY_ITEMS.extend(x for x in families)
+
+
+    def assembleTrees(self):
+        for char_dict in self.character_db:
+            graphic_char = Character(char_dict)
+
+            rom_fam_ids = [x['rom_id'] for x in char_dict['partnerships']]
+            blood_fam_id = char_dict['fam_id']
+
+            # Create romance family
+            for rom_fam_id in rom_fam_ids:
+                if rom_fam_id and self.families_db.contains(where('fam_id') == rom_fam_id):
+                    
+                    if rom_fam_id not in TreeView.MasterFamilies.keys():
+                        graphic_char.setTreeID(rom_fam_id)
+                        TreeView.MasterFamilies[rom_fam_id] = Family([graphic_char], rom_fam_id)
+                    
+                    if graphic_char not in TreeView.MasterFamilies[rom_fam_id].getFirstGen():
+                        root_char = TreeView.MasterFamilies[rom_fam_id].getRoot()
+                        TreeView.MasterFamilies[rom_fam_id].setFirstGen(1, graphic_char, rom_fam_id)
+                
+            # Create blood family
+            if blood_fam_id and self.families_db.contains(where('fam_id') == blood_fam_id):
+                if blood_fam_id not in TreeView.MasterFamilies.keys(): #NOTE: Assume sorted order
+                    graphic_char.setTreeID(blood_fam_id)
+                    TreeView.MasterFamilies[blood_fam_id] = Family([graphic_char], blood_fam_id)
+
+
+            if char_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID'] or char_dict['parent_0'] == self.meta_db.all()[0]['TERM_ID']:
+                continue
+
+            if char_dict['parent_0']:
+                TreeView.MasterFamilies[blood_fam_id].addChild(graphic_char, char_dict['parent_0'])
+
+            if char_dict['parent_1']:
+                TreeView.MasterFamilies[blood_fam_id].addChildRelationship(graphic_char, char_dict['parent_1'])
+
+        for f_id, fam in TreeView.MasterFamilies.items():
+            fam_record = self.families_db.get(where('fam_id') == f_id)
+            if fam_record:
+                fam.setName(fam_record['fam_name'])
+                fam.setType(fam_record['fam_type'])
+
+        self.connectFamilies()
+
+    def connectFamilies(self):
+        couples_record = self.character_db.search((where('partnerships') != []))
+        relationships = [x['partnerships'] for x in couples_record]
+        relationships = [couple for couples in relationships for couple in couples]
+        relationships.sort(key=lambda x: x['rom_id'])
+
+        for rom_id, couple in groupby(relationships, key=lambda x:x['rom_id']):
+            couple = tuple(couple)
+            partner1 = couple[0]
+            partner2 = couple[1]
+
+            fam1_id = self.character_db.get(where('char_id') == partner2['p_id'])['fam_id']
+            if fam1_id not in TreeView.MasterFamilies.keys():
+                fam1_id = rom_id
+            
+            fam2_id = self.character_db.get(where('char_id') == partner1['p_id'])['fam_id']
+            if fam1_id not in TreeView.MasterFamilies.keys():
+                fam2_id = rom_id
+
+            graphics_p1 = TreeView.MasterFamilies[fam1_id].getMember(partner2['p_id'])
+            graphics_p2 = TreeView.MasterFamilies[fam2_id].getMember(partner1['p_id'])
+
+            if rom_id in TreeView.MasterFamilies.keys():
+                if graphics_p2.getData() in graphics_p1.getMates():
+                    TreeView.MasterFamilies[fam1_id].addMate(graphics_p2.getData(), rom_id, graphics_p1.getData())
+                else:
+                    TreeView.MasterFamilies[fam2_id].addMate(graphics_p1.getData(), rom_id, graphics_p2.getData())
+                continue
+
+            # print(f'connecting {graphics_p1} and {graphics_p2} in {fam1_id}')
+            TreeView.MasterFamilies[fam1_id].addMate(graphics_p2.getData(), rom_id, graphics_p1.getData())
+            TreeView.MasterFamilies[fam2_id].addMate(graphics_p1.getData(), rom_id, graphics_p2.getData())
+
+
+
+    def connect_db(self, database):
+        # Create tables
+        self.meta_db = database.table('meta')
+        self.character_db = database.table('characters')
+        self.families_db = database.table('families')
+        self.kingdoms_db = database.table('kingdoms')
+        self.preferences_db = database.table('preferences')
+        self.entry_formatter = DataFormatter()
+
+        for family in self.families_db:
+            self.CURRENT_FAMILIES.add(family['fam_id'])
+        for kingdom in self.kingdoms_db:
+            self.CURRENT_KINGDOMS.add(kingdom['kingdom_id'])
+        
+    def setTreeSpacing(self):
+        fam_sizes = [(k, v.boundingRect()) for k,v in TreeView.MasterFamilies.items()]
+        fam_sizes.sort(key=lambda x: x[1].width(), reverse=True)
+        root_y = 0
+        root_x = 0
+        x_offset = 0
+        count = 0
+        for fam_id, size in fam_sizes:
+            root_loc = qtc.QPoint(root_x, root_y)
+            TreeView.MasterFamilies[fam_id].setPos(root_loc)
+            x_offset = np.power(-1, count) * (abs(x_offset) + size.width()*(2/3))
+            root_x = x_offset
+            count += 1
+
+    def updatePreferences(self):
+        if pref_record := self.preferences_db.get(where('tab') == 'tree'):
+            if val := pref_record.get('generation_spacing', None):
+                Family.FIXED_Y = val
+            if val := pref_record.get('sibling_spacing', None):
+                Family.FIXED_X = val
+            if val := pref_record.get('desc_dropdown', None):
+                Family.DESC_DROPDOWN = val
+            if val := pref_record.get('partner_spacing', None):
+                Family.PARTNER_SPACING = val
+            if val := pref_record.get('expand_factor', None):
+                Family.EXPAND_CONSTANT = val
+            if val := pref_record.get('offset_factor', None):
+                Family.OFFSET_CONSTANT = val
+            if val := pref_record.get('ruler_crown_size', None) and \
+                val != Character.CROWN_HEIGHT:
+                    Character.CROWN_HEIGHT = val         
+            if pref_record.get('ruler_crown_img', None):
+                pass
+            if val := pref_record.get('char_img_width', None):
+                PictureEditor.CHAR_IMAGE_WIDTH = val
+            if val := pref_record.get('char_img_height', None):
+                PictureEditor.CHAR_IMAGE_HEIGHT = val
+            self.update_tree()
+
+    def update_tree(self):
+        self.scene.reset_scene()
+        if not TreeView.MasterFamilies:
+            self.hideAddCharacter.emit(False)
+        else:
+            self.hideAddCharacter.emit(True)
+            for fam_id, family in TreeView.MasterFamilies.items():
+                if fam_id in TreeView.CURRENT_FAMILIES: #WARNING: not good place for constant
+                    family.set_grid()  
+                    family.build_tree()
+                    if family not in self.scene.current_families:
+                        # family.initFirstGen()
+                        family.setParent(self)
+                        # self.addedChars.emit([char.getID() for char in family.getAllMembers()])
+                        family.initFirstGen()
+                        self.scene.add_family_to_scene(family)
+                else:
+                    if family in self.scene.current_families:
+                        # self.removedChars.emit([char.getID() for char in family.getAllMembers()])
+                        self.scene.remove_family_from_scene(family) 
+                        family.setParent(None)
+        self.scene.update()
+        self.viewport().update()
+
+    def toggle_char_selecting(self):
+        self.selecting_char = False
+        self.tempStatusbarMsg.emit('', 100) # temporary way to clear message
+    
+    def toggle_panning(self, state):
+        self._pan = state
+        self._pan_act = state
+        self._mousePressed = False
+        if self._pan:
+            self.viewport().setCursor(qtc.Qt.OpenHandCursor)
+        else:
+            self.viewport().unsetCursor()
+    
+
+    # @qtc.pyqtSlot(dict, qtc.QPointF)
+    def inspect_selection(self, point):
+        self.toggle_char_selecting()
+        if point:
+            selection = self.itemAt(point)
+            if not selection and self.scene.sceneRect().contains(point):
+                selection = self.mapToScene(point)
+            self.selected_char = selection
+
+
+    def requestCharacter(self, msg_prompt): # Wait for user to select a character
+        self.selecting_char = True
+        self.selected_char = None
+        print(msg_prompt)
+        
+        # AutoCloseMessageBox.showWithTimeout(3, msg_prompt)
+        prompt = CustomMsgBox(msg_prompt)
+        prompt.move(self.width()/2, 0)
+        self.sceneClicked.connect(prompt.close)
+        prompt.show()
+        
+        self.tempStatusbarMsg.emit(f'{msg_prompt}...', self.char_selection_timeout)
+        loop = qtc.QEventLoop()
+        self.sceneClicked.connect(loop.quit)
+        self.sceneClicked.connect(self.inspect_selection)
+        timer = qtc.QTimer()
+        timer.singleShot(self.char_selection_timeout, loop.quit)
+        loop.exec()
+        return self.selected_char
+
+    
+    def add_new_family(self, first_gen, fam_name=None, fam_id=None, fam_type=FAM_TYPE.SUBSET, root_pt=None):    
+        if not fam_name:
+            if isinstance(first_gen[0], dict):
+                fam_name = first_gen[0].get('family', None)
+                if not fam_name:
+                    # fam_name, ok = qtw.QInputDialog.getText(self, "New Family", "Enter a family name:")
+                    fam_name, ok = UserLineInput.requestInput("New Family", "Enter a family name:", self)
+                    if not ok:
+                        return False
+        if not root_pt:
+            root_pt = self.mapToScene(self.viewport().rect().center())
+        fam_entry = self.entry_formatter.family_entry(fam_name, fam_type, fam_id)
+        fam_id = fam_entry['fam_id'] 
+        family_heads = []
+        self.families_db.insert(fam_entry) 
+
+        if isinstance(first_gen[0], Character):
+            for char in first_gen:
+                char_clone = Character(char.toDict())
+                char_clone.setTreeID(fam_id)
+                family_heads.append(char_clone) # CREATE CLONE
+
+        elif isinstance(first_gen[0], dict):
+            for index, char_dict in enumerate(first_gen):
+                formatted_dict = self.entry_formatter.char_entry(char_dict)
+                char_id = formatted_dict['char_id']
+
+                if self.character_db.contains(where('char_id') == char_id):
+                    # CREATE CLONE
+                    new_char = Character(formatted_dict)
+                    TreeView.CharacterList.add(new_char)
+
+                else:
+                    formatted_dict['fam_id'] = fam_id
+                    if not formatted_dict['parent_0']:
+                        formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
+                    
+                    self.character_db.insert(formatted_dict)
+                    new_char = Character(formatted_dict)
+                    TreeView.CharacterList.add(new_char)
+                    self.addedChars.emit([new_char.getID()])
+                
+                new_char.setTreeID(fam_id)                
+                family_heads.append(new_char)
+        
+        new_family = Family(first_gen=family_heads, family_id=fam_id, family_type=fam_type, family_name=fam_name, pos=root_pt)
+        TreeView.MasterFamilies[fam_id] = new_family
+        self.CURRENT_FAMILIES.add(fam_id)
+        self.hideAddCharacter.emit(True)
+        CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
+
+        # Connect signals
+        new_family.setParent(self)
+        new_family.edit_char.connect(self.add_character_edit)
+        new_family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
+        new_family.remove_character.connect(self.remove_character)
+        new_family.delete_fam.connect(self.delete_family)
+        new_family.add_partner.connect(self.createPartnership)
+        new_family.add_parent.connect(self.addParent)
+        new_family.remove_partnership.connect(self.divorceProctor)
+
+        self.scene.add_family_to_scene(new_family)
+        new_family.set_grid()
+        new_family.build_tree()
+        
+        # Apply current flags
+        if FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+            family_head = self.character_db.get(where('char_id') == family_heads[0].getID())
+            self.previous_families.add(new_family.getID())
+            if family_head['parent_0'] in TreeView.CharacterList:
+                self.CURRENT_FAMILIES.remove(new_family.getID())
+            else:
+                new_family.explodeFamily(True)
+        
+        if FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
+            new_family.setNameDisplay(False)
+        else:
+            new_family.setNameDisplay(True)
+        
+        if FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+            new_family.includeFirstGen(True)
+        else:
+            new_family.includeFirstGen(False)
+
+        self.familiesAdded.emit(SELECTIONS_UPDATE.ADDED_FAM, [fam_entry])
+        return True
+
+
+    def get_kingdom(self, kingdom_name=None, kingdom_id=None):
+        if kingdom_name:
+            kingdom_record = self.kingdoms_db.get(where('kingdom_name') == kingdom_name)
+            if not kingdom_record:
+                # print('PROBLEM: unrecognized kingdom, make new??')
+                new_kingdom = self.entry_formatter.kingdom_entry(kingdom_name, kingdom_id)
+                update = self.kingdoms_db.insert(new_kingdom)
+                self.kingdomsAdded.emit(SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
+            else:
+                return kingdom_record['kingdom_id']
+        elif kingdom_id:
+            kingdom_record = self.kingdoms_db.get(where('kingdom_id') == kingdom_id)
+            if not kingdom_record:
+                # print('PROBLEM: unrecognized kingdom, make new??')
+                new_kingdom = self.entry_formatter.kingdom_entry(kingdom_name, kingdom_id)
+                update = self.kingdoms_db.insert(new_kingdom)
+                self.kingdomsAdded.emit(SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
+            else:
+                return kingdom_record['kingdom_name']
+        else:
+            return self.kingdoms_db.get(where('kingdom_name') == 'None')
+
+
+    def get_family(self, fam_name=None, fam_id=None):
+        if fam_name:
+            fam_record = self.families_db.get(where('fam_name') == fam_name)
+            if not fam_record:
+                print('PROBLEM: unrecognized family, make new??')
+            else:
+                return fam_record['fam_id']
+        elif fam_id:
+            fam_record = self.families_db.get(where('fam_id') == fam_id)
+            if not fam_record:
+                print('PROBLEM: unrecognized family, make new??')
+            else:
+                return fam_record['fam_name']
+        else:
+            return self.families_db.get(where('fam_name') == 'None')
+    
+    def matchMaker(self, char_1_id, char_2=None):
+        if not char_2:
+            char_2 = self.requestCharacter("Please select a partner")
+            if not isinstance(char_2, Character):
+                return
+        char_1 = TreeView.CharacterList.search(char_1_id)
+        if not char_1:
+            return
+        char_1 = char_1[0]
+
+        if char_1_id == char_2.getID():
+            print("Can't be your own partner!")
+            return
+        
+        char_1_record = self.character_db.get(where('char_id') == char_1_id)
+        char_2_record = self.character_db.get(where('char_id') == char_2.getID())
+
+        # if len(char_1_record['partnerships']) > 1:
+        #     print()
+        
+        fam_1_ids = []
+        for instance in TreeView.CharacterList.search(char_1_id):
+            # print(instance.getName(), instance.getID(), instance.getTreeID())
+            fam_1_ids.append(instance.getTreeID())
+
+        fam_2_ids = []
+        for instance in TreeView.CharacterList.search(char_2.getID()):
+            # print(instance.getName(), instance.getID(), instance.getTreeID())
+            fam_2_ids.append(instance.getTreeID())
+
+        rom_id = None
+        if char_1_record['partnerships']:
+            if len(char_1_record['partnerships']) == 1:
+                if char_1_record['partnerships'][0]['p_id'] == self.meta_db.all()[0]['NULL_ID']:
+                    rom_id = char_1_record['partnerships'][0]['rom_id']
+                    self.character_db.update({'partnerships': []}, where('char_id') == char_1_record['char_id'])
+                else:
+                    print("Replacing partners is not currently supported")
+                    return
+            else:
+                print('Currently can only have one partner at a time.')
+                return
+
+        if char_2_record['partnerships']:
+            if len(char_2_record['partnerships']) == 1:
+                if char_2_record['partnerships'][0]['p_id'] == self.meta_db.all()[0]['NULL_ID']:
+                    if rom_id:
+                        print("Can't currently combine two divorced families")
+                        return
+                    rom_id = char_2_record['partnerships'][0]['rom_id']
+                    self.character_db.update({'partnerships': []}, where('char_id') == char_2_record['char_id'])
+                else:
+                    print("Replacing partners is not currently supported")
+                    return
+            else:
+                print('Currently can only have one partner at a time.')
+                return
+
+
+
+        char_1_entry = self.entry_formatter.partnership_entry(char_1.getID(), rom_id)
+        rom_id = char_1_entry['rom_id']
+        char_2_entry = self.entry_formatter.partnership_entry(char_2.getID(), rom_id)
+
+        for fam_id in fam_1_ids:
+            try:
+                mate = self.MasterFamilies[fam_id].addMate(char_2, rom_id, char_1)
+                TreeView.CharacterList.add(mate)
+            except:
+                pass
+        for fam_id in fam_2_ids:
+            try:
+                mate = self.MasterFamilies[fam_id].addMate(char_1, rom_id, char_2)
+                TreeView.CharacterList.add(mate)
+            except:
+                pass
+        
+        char_1_relationships = char_1_record['partnerships'] + [char_1_entry]
+        self.character_db.update({'partnerships': char_1_relationships}, where('char_id') == char_1.getID())
+        char_2_relationships = char_2_record['partnerships'] + [char_2_entry]
+        self.character_db.update({'partnerships': char_2_relationships }, where('char_id') == char_2.getID())
+        self.update_tree()
 
 
     def filterKingdoms(self, kingdom_record, filter_state):
@@ -1289,11 +1295,8 @@ class TreeView(qtw.QGraphicsView):
         else:
             print("Unknown Flag Type!!")
         return
-    
 
-    
-
-    ## Override Built-In Event Slots ##
+    ##----------------- Override Built-In Event Slots ----------------##
 
     def resizeEvent(self, event):                
         self.fitWithBorder()
@@ -1366,7 +1369,7 @@ class TreeView(qtw.QGraphicsView):
         
     def mousePressEvent(self, event):
         if self.selecting_char and event.button() == qtc.Qt.LeftButton:
-            self.scene_clicked.emit(event.pos())
+            self.sceneClicked.emit(event.pos())
             return
         
         self.last_mouse = 'Single'
@@ -1439,7 +1442,7 @@ class TreeView(qtw.QGraphicsView):
 
         return True
 
-
+    ## Keyboard input
     
     def keyPressEvent(self, event):
         if event.key() == qtc.Qt.Key_Escape:        # Escape key shortcuts
@@ -1462,9 +1465,6 @@ class TreeView(qtw.QGraphicsView):
 
         super(TreeView, self).keyPressEvent(event)
     
-
-    
-            
 
 # Create Tree scene 
 class TreeScene(qtw.QGraphicsScene):
@@ -1509,7 +1509,6 @@ class TreeScene(qtw.QGraphicsScene):
     
     def add_family_to_scene(self, fam):
         if fam not in self.current_families:
-            # print(f'Adding {fam}')
             fam.setZValue(1)
             self.addItem(fam)
             self.current_families.append(fam)
@@ -1517,169 +1516,6 @@ class TreeScene(qtw.QGraphicsScene):
         
     def remove_family_from_scene(self, fam):
         if fam in self.current_families:
-            # print(f'Removing: {fam}')
-            # fam.prepareGeometryChange()
             self.current_families.remove(fam)
-            self.removeItem(fam)
-    
-    # def event(self, event):
-    #     if event.type() == qtc.QEvent.Gesture:
-    #         return self.gestureEvent(event)
-    #     if event.type() == qtc.QEvent.GestureOverride:
-    #         event.accept()
-    #     return super(TreeScene, self).event(event)
- 
-    # def gestureEvent(self, event):
-    #     if swipe := event.gesture(qtc.Qt.PanGesture):
-    #         print('Panning!')
-        
-    #     elif swipe := event.gesture(qtc.Qt.PinchGesture):
-    #         print('Pinching!')
-        
-    #     return True
-            
-        
+            self.removeItem(fam)       
 
-class PartnerSelect(qtw.QDialog):
-
-    selection_made = qtc.pyqtSignal(bool)
-    
-    def __init__(self, parent=None):
-        super(PartnerSelect, self).__init__(parent)
-        layout = qtw.QGridLayout()
-        font = qtg.QFont('Didot', 28)
-        self.title = qtw.QLabel("Please choose who the new partner will be.")
-        self.title.setFont(font)
-
-        font = qtg.QFont('Didot', 20)
-        self.new_char = qtw.QPushButton("New Character")
-        self.new_char.setFont(font)
-        self.new_char.clicked.connect(self.close)
-
-        self.char_select = qtw.QPushButton("Select Existing")
-        self.char_select.setFont(font)
-        self.char_select.clicked.connect(self.close)
-
-        layout.addWidget(self.title, 1, 0, 1, 3)
-        layout.addWidget(self.new_char, 2, 0, 1, 1)
-        layout.addWidget(self.char_select, 2, 2, 1, 1)
-        self.setLayout(layout)
-        self.setSizePolicy(qtw.QSizePolicy.Minimum, qtw.QSizePolicy.Preferred)
-        # self.setFixedSize(325, 100)
-        self.setWindowTitle('Partner Creation Type')
-    
-class ParentSelect(qtw.QDialog):
-
-    selection_made = qtc.pyqtSignal(bool)
-    
-    def __init__(self, parent=None):
-        super(ParentSelect, self).__init__(parent)
-        layout = qtw.QGridLayout()
-        font = qtg.QFont('Didot', 28)
-        self.title = qtw.QLabel("Please choose who the new parent will be.")
-        self.title.setFont(font)
-
-        font = qtg.QFont('Didot', 20)
-        self.new_char = qtw.QPushButton("New Character")
-        self.new_char.setFont(font)
-        self.new_char.clicked.connect(self.close)
-
-        self.char_select = qtw.QPushButton("Select Existing")
-        self.char_select.setFont(font)
-        self.char_select.clicked.connect(self.close)
-
-        layout.addWidget(self.title, 1, 0, 1, 3)
-        layout.addWidget(self.new_char, 2, 0, 1, 1)
-        layout.addWidget(self.char_select, 2, 2, 1, 1)
-        self.setLayout(layout)
-        self.setSizePolicy(qtw.QSizePolicy.Minimum, qtw.QSizePolicy.Preferred)
-        # self.setFixedSize(325, 100)
-        self.setWindowTitle('Parent Creation Type')
-    
-
-class CharacterTypeSelect(qtw.QDialog):
-
-    def __init__(self, parent=None):
-        super(CharacterTypeSelect, self).__init__(parent)
-        layout = qtw.QGridLayout()
-        font = qtg.QFont('Didot', 24)
-        self.title = qtw.QLabel("Please choose the character type.")
-        self.title.setFont(font)
-
-        font = qtg.QFont('Didot', 18)
-        self.new_desc = qtw.QPushButton("New Descendant")
-        self.new_desc.setFont(font)
-        self.new_desc.pressed.connect(lambda: self.handleSelection(CHAR_TYPE.DESCENDANT))
-        # self.new_desc.pressed.connect(self.close)
-
-        self.new_part = qtw.QPushButton("New Partner")
-        self.new_part.setFont(font)
-        self.new_part.pressed.connect(lambda: self.handleSelection(CHAR_TYPE.PARTNER))
-        # self.new_part.pressed.connect(self.close)
-
-        layout.addWidget(self.title, 1, 0, 1, 3)
-        layout.addWidget(self.new_desc, 2, 0, 1, 1)
-        layout.addWidget(self.new_part, 2, 2, 1, 1)
-        self.setLayout(layout)
-        self.setSizePolicy(qtw.QSizePolicy.Minimum, qtw.QSizePolicy.Preferred)
-        self.setWindowTitle('New Character Type')
-
-        self.selection = None
-    
-    def handleSelection(self, char_type):
-        self.selection = char_type
-        self.done(0)
-    
-    @staticmethod
-    def requestType():
-        window = CharacterTypeSelect()
-        window.exec_()
-        return window.selection
-
-
-
-
-class CustomMsgBox(qtw.QDialog):
-
-    def __init__(self, msg, parent=None):
-        super(CustomMsgBox, self).__init__(parent)
-        self.setFocusPolicy(qtc.Qt.NoFocus)
-        font = qtg.QFont('Didot', 28)
-        layout = qtw.QHBoxLayout()
-        self.title = qtw.QLabel(msg)
-        self.title.setFont(font)
-        
-        layout.addWidget(self.title)
-        self.setLayout(layout)
-
-        # self.setStandardButtons(qtw.QMessageBox.NoButton)
-
-
-class AutoCloseMessageBox(qtw.QMessageBox):
-
-    def __init__(self, parent=None):
-        super(AutoCloseMessageBox, self).__init__(parent)
-        self.timeout = 0
-        self.currentTime = 0
-    
-    def showEvent(self, event):
-        self.currentTime = 0
-        self.startTimer(1000)
-    
-    def timerEvent(self, *args, **kwargs):
-        self.currentTime += 1
-        if self.currentTime >= self.timeout:
-            self.done(0)
-    
-    @staticmethod
-    def showWithTimeout(timeout_secs, message, window_title=None, icon=None, buttons=qtw.QMessageBox.NoButton):
-        w = AutoCloseMessageBox()
-        w.timeout = timeout_secs
-        w.setText(message)
-        if window_title:
-            w.setWindowTitle(window_title)
-        if icon:
-            w.setIcon(icon)
-        if buttons:
-            w.setStandardButtons(buttons)
-        w.exec()

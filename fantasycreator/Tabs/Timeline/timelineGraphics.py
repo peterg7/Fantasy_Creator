@@ -27,9 +27,6 @@ class TimelineView(qtw.QGraphicsView):
     zoomChanged = qtc.pyqtSignal(int)
     setEventDel = qtc.pyqtSignal(bool)
 
-    MIN_YEAR = -1
-    MAX_YEAR = -1
-
     SCENE_WIDTH = 8500
     SCENE_HEIGHT = 3000
     SCENE_BOUNDS = (0, 0, 8500, 3000)
@@ -37,7 +34,7 @@ class TimelineView(qtw.QGraphicsView):
     EVENT_AXIS = 200
     START_ENTRY_AXIS = 250
     ENTRY_SPACING = 35
-    TIMELINE_PADDING = 100
+    TIMELINE_PADDING = 50
     BORDER_X = 50
     BORDER_Y = 60
     DFLT_VIEW = qtc.QRectF(2500, 150, 3500, 1000)
@@ -63,8 +60,6 @@ class TimelineView(qtw.QGraphicsView):
         self.setRenderHints(qtg.QPainter.Antialiasing | qtg.QPainter.SmoothPixmapTransform)
         self.viewport().grabGesture(qtc.Qt.PinchGesture)
         self.viewport().setAttribute(qtc.Qt.WA_AcceptTouchEvents)
-
-        # self.setDragMode(qtw.QGraphicsView.ScrollHandDrag)
 
         self.entry_formatter = DataFormatter()
 
@@ -95,7 +90,7 @@ class TimelineView(qtw.QGraphicsView):
         TimelineEntry.MAIN_AXIS_MAX = self.materializer.mapTime(max_date)
         TimelineEntry.MAIN_AXIS_MIN = self.materializer.mapTime(min_date)
 
-        self.main_axis = MainTimelineAxis(min_date, max_date)
+        self.main_axis = MainTimelineAxis(min_date, max_date, self.TIMELINE_PADDING)
 
         self.scene.add_axis(self.main_axis)
         self.main_axis.setX(self.materializer.mapTime(min_date))

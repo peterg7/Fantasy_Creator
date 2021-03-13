@@ -1,4 +1,48 @@
+''' Main window of the application. Serves as a governor
 
+Creates instances of the database, welcome window, and all of the tabs. 
+Connects all of the signals between tabs and popup windows. Handles
+global saving & opening of files. 
+
+Copyright (c) 2020 Peter C Gish
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+of the Software, and to permit persons to whom the Software is furnished to do 
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+
+See the MIT License (MIT) for more information. You should have received a copy
+of the MIT License along with this program. If not, see 
+<https://www.mit.edu/~amini/LICENSE.md>.
+'''
+__author__ = "Peter C Gish"
+__contact__ = "peter.gish11@gmail.com"
+__copyright__ = "Copyright 2020"
+__date__ = "Summer 2020"
+__license__ = "MIT"
+__maintainer__ = "Peter C Gish"
+__status__ = "Development"
+__version__ = "1.0.1"
+
+
+# Required for packaging
+COMPANY_NAME = "PeterGish"
+APPLICATION_NAME = "Fantasy Creator"
+
+## Necessary imports
 # PyQt
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtGui as qtg
@@ -38,12 +82,12 @@ from flags import LAUNCH_MODE
 # External resources
 import resources
 
-COMPANY_NAME = "PeterGish"
-APPLICATION_NAME = "Fantasy Creator"
-
-
 # create main window class
 class MainWindow(qtw.QMainWindow):
+
+    # Necessary for Big Sur
+    os.environ['QT_MAC_WANTS_LAYER'] = '1'
+
     # Define constants
     SCREEN_WIDTH = 1400
     SCREEN_HEIGHT = 1000
@@ -75,9 +119,8 @@ class MainWindow(qtw.QMainWindow):
         super().__init__()
 
         self.filename = None
-        if args:
-            if qtc.QFileInfo(args[1]):
-                self.filename = args[1]
+        if args and qtc.QFileInfo(args[1]):
+            self.filename = args[1]
         # print(f'args: {args}')
 
         # Setup + layout
@@ -177,7 +220,7 @@ class MainWindow(qtw.QMainWindow):
         self.treetab.treeview.addedChars.connect(self.table_model.insertNewChars)
         self.treetab.treeview.removedChars.connect(self.table_model.removeChars)
         self.treetab.treeview.updatedChars.connect(self.table_model.updateChars)
-        self.treetab.treeview.temp_statusbar_msg.connect(self.statusBar().showMessage)
+        self.treetab.treeview.tempStatusbarMsg.connect(self.statusBar().showMessage)
         
         self.treetab.treeview.addedChars.connect(self.timetab.timelineview.addChars)
         self.treetab.treeview.removedChars.connect(self.timetab.timelineview.removeChars)
@@ -205,12 +248,12 @@ class MainWindow(qtw.QMainWindow):
         self.scrolltab.status_message.connect(self.statusBar().showMessage)
 
         # Create MenuBar
-        self.menubar = self.menuBar()
+        self.menu_bar = self.menuBar()
 
-        file_menu = self.menubar.addMenu('File')
-        edit_menu = self.menubar.addMenu('Edit')
-        view_menu = self.menubar.addMenu('View')
-        help_menu = self.menubar.addMenu('Help')
+        file_menu = self.menu_bar.addMenu('File')
+        edit_menu = self.menu_bar.addMenu('Edit')
+        view_menu = self.menu_bar.addMenu('View')
+        help_menu = self.menu_bar.addMenu('Help')
 
         #open_action = file_menu.addAction('Open')
         save_action = file_menu.addAction('Save')
