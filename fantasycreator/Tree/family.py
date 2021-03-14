@@ -15,11 +15,11 @@ from collections import defaultdict
 from tinydb import where
 
 # User-defined Modules
-from treeStruct import Tree
-from graphStruct import Graph
-from hashList import HashList
-from character import Character
-from flags import FAM_TYPE
+from .character import Character
+from Data.treeStruct import Tree
+from Data.graphStruct import Graph
+from Data.hashList import HashList
+from Mechanics.flags import FAM_TYPE
 
 
 class Family(qtw.QGraphicsObject):

@@ -11,14 +11,14 @@ from tinydb import where
 import uuid
 
 # User-defined Modules
-from hashList import HashList
-from character import CharacterView, CharacterCreator
-from timelineEntries import TimelineCharEntry, MainTimelineAxis, TimelineEntry
-from timelineEntries import TimelineEventEntry, EntryView, EventCreator
-from materializer import Materializer
-from storyTime import TimeConstants, Time
-from database import DataFormatter
-from flags import EVENT_TYPE, DIRECTION
+from .timelineEntries import TimelineCharEntry, MainTimelineAxis, TimelineEntry
+from .timelineEntries import TimelineEventEntry, EntryView, EventCreator
+from Tree.character import CharacterView, CharacterCreator
+from Data.hashList import HashList
+from Data.database import DataFormatter
+from Mechanics.materializer import Materializer
+from Mechanics.storyTime import TimeConstants, Time
+from Mechanics.flags import EVENT_TYPE, DIRECTION
 
 # create Timeline view
 class TimelineView(qtw.QGraphicsView):

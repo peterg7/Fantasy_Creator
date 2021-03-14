@@ -11,9 +11,9 @@ from tinydb import where
 import uuid
 
 # User-defined Modules
-from character import Character, UserLineInput
-from database import DataFormatter
-from storyTime import DateLineEdit
+from Tree.character import Character, UserLineInput
+from Data.database import DataFormatter
+from Mechanics.storyTime import DateLineEdit
 
 # create Timeline view
 class CharacterScroll(qtw.QWidget):

@@ -5,8 +5,8 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
 # User-defined Modules
-from timelineGraphics import TimelineView
-from characterLookup import LookUpTableView
+from .timelineGraphics import TimelineView
+from Data.characterLookup import LookUpTableView
 
 # craete Timeline scene
 class TimelineTab(qtw.QMainWindow):

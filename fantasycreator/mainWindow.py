@@ -62,25 +62,25 @@ import numpy as np
 from tinydb import where
 
 # User-defined Modules
-from treeTab import TreeTab
-from database import VolatileDB
-from separableTabs import DetachableTabWidget
-from timelineTab import TimelineTab
-from mapBuilderTab import MapBuilderTab
-from scrollTab import ScrollTab
-from welcomeWindow import WelcomeWindow
-from character import Character
-from family import Family
-from preferencesWindow import PreferencesWindow
-from characterLookup import LookUpTableModel, LookUpTableView
-from materializer import Materializer
-from storyTime import TimeConstants, Time
-from aboutWindow import AboutWindow
-from bugReporter import BugReporter
-from flags import LAUNCH_MODE
+from Tree.treeTab import TreeTab
+from Tree.character import Character
+from Tree.family import Family
+from Timeline.timelineTab import TimelineTab
+from Map.mapBuilderTab import MapBuilderTab
+from Scroll.scrollTab import ScrollTab
+from Data.database import VolatileDB
+from Data.characterLookup import LookUpTableModel, LookUpTableView
+from Popups.aboutWindow import AboutWindow
+from Popups.bugReporter import BugReporter
+from Popups.welcomeWindow import WelcomeWindow
+from Popups.preferencesWindow import PreferencesWindow
+from Mechanics.separableTabs import DetachableTabWidget
+from Mechanics.materializer import Materializer
+from Mechanics.storyTime import TimeConstants, Time
+from Mechanics.flags import LAUNCH_MODE
 
 # External resources
-import resources
+from resources import resources
 
 # create main window class
 class MainWindow(qtw.QMainWindow):
@@ -121,7 +121,6 @@ class MainWindow(qtw.QMainWindow):
         self.filename = None
         if args and qtc.QFileInfo(args[1]):
             self.filename = args[1]
-        # print(f'args: {args}')
 
         # Setup + layout
         # self.resize(qtc.QSize(self.SCREEN_WIDTH, self.SCREEN_HEIGHT))

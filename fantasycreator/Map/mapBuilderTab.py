@@ -12,11 +12,11 @@ import types
 # from tinydb import where
 
 # User-defined Modules
-from mapBuilderGraphics import MapView
-from mapBuilderUI import Ui_MapBuilderTab
-from mapBuilderObjects import TimestampList
-from animator import AnimatorControlBar
-from storyTime import Time, TimeConstants
+from .mapBuilderGraphics import MapView
+from .mapBuilderUI import Ui_MapBuilderTab
+from .mapBuilderObjects import TimestampList
+from Mechanics.animator import AnimatorControlBar
+from Mechanics.storyTime import Time, TimeConstants
 
 # Create Map Tab
 class MapBuilderTab(qtw.QMainWindow, Ui_MapBuilderTab):

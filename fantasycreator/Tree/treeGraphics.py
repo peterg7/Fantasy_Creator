@@ -34,15 +34,16 @@ from collections import deque
 from tinydb import where
 
 # User-defined Modules
-from flags import *
-from family import Family
-from graphStruct import Graph
-from hashList import HashList
-from database import DataFormatter
-from character import Character, CharacterView, CharacterCreator, UserLineInput, PictureEditor
+from .family import Family
+from .character import Character, CharacterView, CharacterCreator, UserLineInput, PictureEditor
+import Mechanics.flags as flags
+from Data.graphStruct import Graph
+from Data.hashList import HashList
+from Data.database import DataFormatter
+
 
 # External resources
-import resources
+from resources import resources
 
 # create Tree view
 class TreeView(qtw.QGraphicsView):
@@ -71,7 +72,7 @@ class TreeView(qtw.QGraphicsView):
     CURRENT_FAMILIES = set()
     CURRENT_KINGDOMS = set()
 
-    TREE_DISPLAY = TREE_ICON_DISPLAY.IMAGE
+    TREE_DISPLAY = flags.TREE_ICON_DISPLAY.IMAGE
     CENTER_ANCHOR = qtc.QPointF(5000, 150)
     DFLT_VIEW = qtc.QRectF(4000, 150, 5000, 1000)
 
@@ -183,7 +184,7 @@ class TreeView(qtw.QGraphicsView):
     @qtc.pyqtSlot(dict, uuid.UUID)
     def add_new_character(self, char_dict, char_type, parent=None):
         added_partner = False
-        if char_type == CHAR_TYPE.DESCENDANT:
+        if char_type == flags.CHAR_TYPE.DESCENDANT:
             if isinstance(parent, uuid.UUID):
                 parent_id = parent
 
@@ -197,7 +198,7 @@ class TreeView(qtw.QGraphicsView):
                 if isinstance(parent, Character):
                     parent_id = parent.getID()
                 elif isinstance(parent, qtc.QPointF):
-                    self.add_new_family([char_dict], fam_type=FAM_TYPE.NULL_TERM, root_pt=parent)
+                    self.add_new_family([char_dict], fam_type=flags.FAM_TYPE.NULL_TERM, root_pt=parent)
                     return # Parent selection timeout, empty list returned
                 else:
                     return
@@ -271,7 +272,7 @@ class TreeView(qtw.QGraphicsView):
                 new_char = Character(new_char.toDict())
             
 
-        elif char_type == CHAR_TYPE.PARTNER:
+        elif char_type == flags.CHAR_TYPE.PARTNER:
             if isinstance(parent, uuid.UUID):
                 existing_char = TreeView.CharacterList.search(parent)[0]
             elif isinstance(parent, list): # assume to be selectionList
@@ -310,7 +311,7 @@ class TreeView(qtw.QGraphicsView):
                 create_fam_prompt.setFont(prompt_font)
                 response = create_fam_prompt.exec()
                 if response == qtw.QMessageBox.Yes:
-                    self.add_new_family([formatted_dict, existing_dict], fam_type=FAM_TYPE.NULL_TERM)
+                    self.add_new_family([formatted_dict, existing_dict], fam_type=flags.FAM_TYPE.NULL_TERM)
                     added_partner = True
                 else:
                     formatted_dict['fam_id'] = self.meta_db.all()[0]['NULL_ID']
@@ -360,11 +361,11 @@ class TreeView(qtw.QGraphicsView):
                     mate = TreeView.MasterFamilies[fam_id].addMate(new_char, romance_entry['rom_id'], instance)
                     TreeView.CharacterList.add(mate)
                 
-            if FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
-                self.requestFilterChange.emit(FAMILY_FLAGS.BASE, FAMILY_FLAGS.INCLUDE_PARTNERS)
+            if flags.FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
+                self.requestFilterChange.emit(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
             else:
-                self.CURRENT_FAMILY_FLAGS.remove(FAMILY_FLAGS.INCLUDE_PARTNERS)
-                self.filter_tree(FAMILY_FLAGS.BASE, FAMILY_FLAGS.INCLUDE_PARTNERS)
+                self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
+                self.filter_tree(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
         else:
             print('Unknown character type...')
             return
@@ -374,7 +375,7 @@ class TreeView(qtw.QGraphicsView):
         #     print(char, char.getTreeID())
 
         # Apply current flags
-        if FAMILY_FLAGS.DISPLAY_RULERS in self.CURRENT_FAMILY_FLAGS:
+        if flags.FAMILY_FLAGS.DISPLAY_RULERS in self.CURRENT_FAMILY_FLAGS:
             for char in TreeView.CharacterList.search(formatted_dict['char_id']):
                 char.setRulerDisplay(True)              
         else:
@@ -382,13 +383,13 @@ class TreeView(qtw.QGraphicsView):
                 char.setRulerDisplay(False)              
 
 
-        if TreeView.TREE_DISPLAY == TREE_ICON_DISPLAY.IMAGE:
+        if TreeView.TREE_DISPLAY == flags.TREE_ICON_DISPLAY.IMAGE:
             for char in TreeView.CharacterList.search(formatted_dict['char_id']):
-                char.setDisplayMode(TREE_ICON_DISPLAY.IMAGE)              
+                char.setDisplayMode(flags.TREE_ICON_DISPLAY.IMAGE)              
 
-        elif TreeView.TREE_DISPLAY == TREE_ICON_DISPLAY.NAME:
+        elif TreeView.TREE_DISPLAY == flags.TREE_ICON_DISPLAY.NAME:
             for char in TreeView.CharacterList.search(formatted_dict['char_id']):
-                char.setDisplayMode(TREE_ICON_DISPLAY.NAME)
+                char.setDisplayMode(flags.TREE_ICON_DISPLAY.NAME)
         self.scene.update()
 
 
@@ -410,7 +411,7 @@ class TreeView(qtw.QGraphicsView):
                 CharacterCreator.FAMILY_ITEMS.insert(-1, name)
             self.new_char_dialog.family_select.setCurrentText(name)
             self.new_char_dialog.family_select.setDisabled(True)
-            self.new_char_dialog.submitted.connect(lambda d: self.add_new_family([d], name, fam_type=FAM_TYPE.ENDPOINT))
+            self.new_char_dialog.submitted.connect(lambda d: self.add_new_family([d], name, fam_type=flags.FAM_TYPE.ENDPOINT))
             self.new_char_dialog.show()
         else:
             return
@@ -418,7 +419,7 @@ class TreeView(qtw.QGraphicsView):
     @qtc.pyqtSlot(uuid.UUID)
     def createPartnership(self, char_id):
         self.selection_window = PartnerSelect()
-        self.selection_window.new_char.clicked.connect(lambda: self.createCharacter(CHAR_TYPE.PARTNER, char_id))
+        self.selection_window.new_char.clicked.connect(lambda: self.createCharacter(flags.CHAR_TYPE.PARTNER, char_id))
         self.selection_window.char_select.clicked.connect(lambda: self.matchMaker(char_id))
         self.selection_window.show()
 
@@ -624,7 +625,7 @@ class TreeView(qtw.QGraphicsView):
         del fam
         del self.MasterFamilies[fam_id]
         self.families_db.remove(where('fam_id') == fam_id)
-        self.familiesAdded.emit(SELECTIONS_UPDATE.REMOVED_FAM, [fam_entry])
+        self.familiesAdded.emit(flags.SELECTIONS_UPDATE.REMOVED_FAM, [fam_entry])
     
     @qtc.pyqtSlot(uuid.UUID)
     @qtc.pyqtSlot(Character)
@@ -693,7 +694,7 @@ class TreeView(qtw.QGraphicsView):
             for fam_id, family in TreeView.MasterFamilies.items():
                 family.setParent(self)
                 family.edit_char.connect(self.add_character_edit)
-                family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
+                family.add_descendant.connect(lambda x: self.createCharacter(flags.CHAR_TYPE.DESCENDANT, x))
                 family.remove_character.connect(self.remove_character)
                 family.add_partner.connect(self.createPartnership)
                 family.remove_partnership.connect(self.divorceProctor)
@@ -941,7 +942,7 @@ class TreeView(qtw.QGraphicsView):
         return self.selected_char
 
     
-    def add_new_family(self, first_gen, fam_name=None, fam_id=None, fam_type=FAM_TYPE.SUBSET, root_pt=None):    
+    def add_new_family(self, first_gen, fam_name=None, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):    
         if not fam_name:
             if isinstance(first_gen[0], dict):
                 fam_name = first_gen[0].get('family', None)
@@ -995,7 +996,7 @@ class TreeView(qtw.QGraphicsView):
         # Connect signals
         new_family.setParent(self)
         new_family.edit_char.connect(self.add_character_edit)
-        new_family.add_descendant.connect(lambda x: self.createCharacter(CHAR_TYPE.DESCENDANT, x))
+        new_family.add_descendant.connect(lambda x: self.createCharacter(flags.CHAR_TYPE.DESCENDANT, x))
         new_family.remove_character.connect(self.remove_character)
         new_family.delete_fam.connect(self.delete_family)
         new_family.add_partner.connect(self.createPartnership)
@@ -1007,7 +1008,7 @@ class TreeView(qtw.QGraphicsView):
         new_family.build_tree()
         
         # Apply current flags
-        if FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+        if flags.FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
             family_head = self.character_db.get(where('char_id') == family_heads[0].getID())
             self.previous_families.add(new_family.getID())
             if family_head['parent_0'] in TreeView.CharacterList:
@@ -1015,17 +1016,17 @@ class TreeView(qtw.QGraphicsView):
             else:
                 new_family.explodeFamily(True)
         
-        if FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
+        if flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
             new_family.setNameDisplay(False)
         else:
             new_family.setNameDisplay(True)
         
-        if FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+        if flags.FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
             new_family.includeFirstGen(True)
         else:
             new_family.includeFirstGen(False)
 
-        self.familiesAdded.emit(SELECTIONS_UPDATE.ADDED_FAM, [fam_entry])
+        self.familiesAdded.emit(flags.SELECTIONS_UPDATE.ADDED_FAM, [fam_entry])
         return True
 
 
@@ -1036,7 +1037,7 @@ class TreeView(qtw.QGraphicsView):
                 # print('PROBLEM: unrecognized kingdom, make new??')
                 new_kingdom = self.entry_formatter.kingdom_entry(kingdom_name, kingdom_id)
                 update = self.kingdoms_db.insert(new_kingdom)
-                self.kingdomsAdded.emit(SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
+                self.kingdomsAdded.emit(flags.SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
             else:
                 return kingdom_record['kingdom_id']
         elif kingdom_id:
@@ -1045,7 +1046,7 @@ class TreeView(qtw.QGraphicsView):
                 # print('PROBLEM: unrecognized kingdom, make new??')
                 new_kingdom = self.entry_formatter.kingdom_entry(kingdom_name, kingdom_id)
                 update = self.kingdoms_db.insert(new_kingdom)
-                self.kingdomsAdded.emit(SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
+                self.kingdomsAdded.emit(flags.SELECTIONS_UPDATE.ADDED_KINGDOM, [new_kingdom])
             else:
                 return kingdom_record['kingdom_name']
         else:
@@ -1176,54 +1177,54 @@ class TreeView(qtw.QGraphicsView):
     @qtc.pyqtSlot(int, str)
     @qtc.pyqtSlot(int, int)
     def filter_tree(self, flag_type, flag):
-        if flag_type == FAMILY_FLAGS.BASE:
-            if flag == FAMILY_FLAGS.DISPLAY_RULERS:
-                if FAMILY_FLAGS.DISPLAY_RULERS in self.CURRENT_FAMILY_FLAGS:
-                    self.CURRENT_FAMILY_FLAGS.remove(FAMILY_FLAGS.DISPLAY_RULERS)
+        if flag_type == flags.FAMILY_FLAGS.BASE:
+            if flag == flags.FAMILY_FLAGS.DISPLAY_RULERS:
+                if flags.FAMILY_FLAGS.DISPLAY_RULERS in self.CURRENT_FAMILY_FLAGS:
+                    self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.DISPLAY_RULERS)
                     print("Showing rulers")
                     for family in self.MasterFamilies.values():
                         for char in family.getMembersAndPartners():
                             char.setRulerDisplay(True)              
 
                 else:
-                    self.CURRENT_FAMILY_FLAGS.add(FAMILY_FLAGS.DISPLAY_RULERS)
+                    self.CURRENT_FAMILY_FLAGS.add(flags.FAMILY_FLAGS.DISPLAY_RULERS)
                     print("Hidding rulers")
                     for family in self.MasterFamilies.values():
                         for char in family.getMembersAndPartners():
                             char.setRulerDisplay(False)              
                 self.scene.update()
             
-            elif flag == FAMILY_FLAGS.DISPLAY_FAM_NAMES:
-                if FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
-                    self.CURRENT_FAMILY_FLAGS.remove(FAMILY_FLAGS.DISPLAY_FAM_NAMES)
+            elif flag == flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES:
+                if flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
+                    self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES)
                     print("Showing family names")
                     for family in self.MasterFamilies.values():
                         family.setNameDisplay(True)
                             
                 else:
-                    self.CURRENT_FAMILY_FLAGS.add(FAMILY_FLAGS.DISPLAY_FAM_NAMES)
+                    self.CURRENT_FAMILY_FLAGS.add(flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES)
                     print("Hiding family names")
                     for family in self.MasterFamilies.values():
                         family.setNameDisplay(False)
                 self.scene.update()
 
-            elif flag == FAMILY_FLAGS.INCLUDE_PARTNERS:
-                if FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
-                    self.CURRENT_FAMILY_FLAGS.remove(FAMILY_FLAGS.INCLUDE_PARTNERS)
+            elif flag == flags.FAMILY_FLAGS.INCLUDE_PARTNERS:
+                if flags.FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+                    self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
                     print("Hidding partners")
                     for family in self.MasterFamilies.values():
                         family.includeFirstGen(False)
 
                 else:
-                    self.CURRENT_FAMILY_FLAGS.add(FAMILY_FLAGS.INCLUDE_PARTNERS)
+                    self.CURRENT_FAMILY_FLAGS.add(flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
                     print("Showing partners")
                     for family in self.MasterFamilies.values():
                         family.includeFirstGen(True)
                 self.update_tree()
 
-            elif flag == FAMILY_FLAGS.CONNECT_PARTNERS:
-                if FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
-                    self.CURRENT_FAMILY_FLAGS.remove(FAMILY_FLAGS.CONNECT_PARTNERS)
+            elif flag == flags.FAMILY_FLAGS.CONNECT_PARTNERS:
+                if flags.FAMILY_FLAGS.CONNECT_PARTNERS in self.CURRENT_FAMILY_FLAGS:
+                    self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.CONNECT_PARTNERS)
                     print('Separating families')
                     for fam_id, family in self.MasterFamilies.items():
                         if fam_id in self.previous_families:
@@ -1232,7 +1233,7 @@ class TreeView(qtw.QGraphicsView):
                             self.CURRENT_FAMILIES.add(fam_id)
                     
                 else:
-                    self.CURRENT_FAMILY_FLAGS.add(FAMILY_FLAGS.CONNECT_PARTNERS)
+                    self.CURRENT_FAMILY_FLAGS.add(flags.FAMILY_FLAGS.CONNECT_PARTNERS)
                     print('Connecting families')
                     self.previous_families = set(self.CURRENT_FAMILIES)
                     # termination_id = self.meta_db.all()[0]['TERM_ID']
@@ -1242,44 +1243,44 @@ class TreeView(qtw.QGraphicsView):
 
                         # if (family_head['parent_0'] in TreeView.CharacterList or family_head['parent_1'] in TreeView.CharacterList) \
                         #     or family_head['parent_0'] != termination_id \
-                        if family._term_type != FAM_TYPE.ENDPOINT and fam_id in self.previous_families:
+                        if family._term_type != flags.FAM_TYPE.ENDPOINT and fam_id in self.previous_families:
                             self.CURRENT_FAMILIES.remove(family.getID())
                         else:
                             family.explodeFamily(True)
-                    if FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
-                        self.requestFilterChange.emit(FAMILY_FLAGS.BASE, FAMILY_FLAGS.INCLUDE_PARTNERS)
+                    if flags.FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
+                        self.requestFilterChange.emit(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
 
                 self.update_tree()
 
 
-        elif flag_type == TREE_ICON_DISPLAY.BASE:
-            if flag == TREE_ICON_DISPLAY.IMAGE:
+        elif flag_type == flags.TREE_ICON_DISPLAY.BASE:
+            if flag == flags.TREE_ICON_DISPLAY.IMAGE:
                 print('Showing as image')
                 TreeView.TREE_DISPLAY = flag
                 for char in TreeView.CharacterList:
-                    char.setDisplayMode(TREE_ICON_DISPLAY.IMAGE)              
+                    char.setDisplayMode(flags.TREE_ICON_DISPLAY.IMAGE)              
 
-            elif flag == TREE_ICON_DISPLAY.NAME:
+            elif flag == flags.TREE_ICON_DISPLAY.NAME:
                 print('Showing as name')
                 TreeView.TREE_DISPLAY = flag
                 for char in TreeView.CharacterList:
-                    char.setDisplayMode(TREE_ICON_DISPLAY.NAME)
+                    char.setDisplayMode(flags.TREE_ICON_DISPLAY.NAME)
             self.scene.update()
         
-        elif flag_type == GROUP_SELECTION_ITEM.FAMILY:
+        elif flag_type == flags.GROUP_SELECTION_ITEM.FAMILY:
             family_record = self.families_db.get(where('fam_name') == flag)
             if family_record:
                 family_id = family_record['fam_id']
                 if family_id in self.CURRENT_FAMILIES:
                     self.CURRENT_FAMILIES.remove(family_id)
                     print(f'Removed family {flag}')
-                elif FAMILY_FLAGS.CONNECT_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
+                elif flags.FAMILY_FLAGS.CONNECT_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
                     self.CURRENT_FAMILIES.add(family_id)
                     print(f'Added family {flag}')
                 self.update_tree()
                 
         
-        elif flag_type == GROUP_SELECTION_ITEM.KINGDOM:
+        elif flag_type == flags.GROUP_SELECTION_ITEM.KINGDOM:
             kingdom_record = self.kingdoms_db.get(where('kingdom_name') == flag)
             if kingdom_record:
                 kingdom_id = kingdom_record['kingdom_id']

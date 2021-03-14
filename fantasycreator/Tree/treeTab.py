@@ -5,9 +5,9 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
 # User-defined Modules
-from treeGraphics import TreeView
-from characterLookup import LookUpTableView
-from controlPanel import TreeControlPanel
+from .treeGraphics import TreeView
+from Data.characterLookup import LookUpTableView
+from Popups.controlPanel import TreeControlPanel
 
 
 # Create Tree tab 

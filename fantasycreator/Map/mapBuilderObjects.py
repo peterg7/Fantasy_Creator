@@ -14,9 +14,9 @@ import types
 import uuid
 
 # User-defined Modules
-from character import PictureLineEdit, PictureEditor
-from storyTime import Time, DateLineEdit, DateValidator
-from flags import EVENT_TYPE
+from Tree.character import PictureLineEdit, PictureEditor
+from Mechanics.storyTime import Time, DateLineEdit, DateValidator
+from Mechanics.flags import EVENT_TYPE
 
 
 ## Embededded Objects

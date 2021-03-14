@@ -24,11 +24,11 @@ from PyQt5 import QtCore as qtc
 from tinydb import where
 
 # User-defined Modules
-from flags import *
-from treeGraphics import TreeView
+from ..Mechanics import flags
+from .treeGraphics import TreeView
 
 # External resources
-import resources
+from ..resources import resources
 
 class PartnerSelect(qtw.QDialog):
 

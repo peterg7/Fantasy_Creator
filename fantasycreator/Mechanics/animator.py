@@ -12,8 +12,8 @@ from tinydb import where
 from sortedcontainers import SortedDict
 
 # User-defined Modules
-from flags import ANIMATION_MODE
-from storyTime import Time
+from Mechanics.flags import ANIMATION_MODE
+from Mechanics.storyTime import Time
 
 class Animator():
 

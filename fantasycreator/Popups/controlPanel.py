@@ -8,7 +8,7 @@ from PyQt5 import QtCore as qtc
 import sys
 
 # User-defined Modules
-from flags import *
+import Mechanics.flags as flags
 
 # Create Control widget
 class TreeControlPanel(qtw.QDockWidget):
@@ -115,50 +115,50 @@ class TreeControlPanel(qtw.QDockWidget):
         signal_mapper = qtc.QSignalMapper(self)
 
         self.show_rulers.stateChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.show_rulers, FAMILY_FLAGS.DISPLAY_RULERS)
+        signal_mapper.setMapping(self.show_rulers, flags.FAMILY_FLAGS.DISPLAY_RULERS)
 
         self.show_fam_names.stateChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.show_fam_names, FAMILY_FLAGS.DISPLAY_FAM_NAMES)
+        signal_mapper.setMapping(self.show_fam_names, flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES)
 
         self.show_partners.stateChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.show_partners, FAMILY_FLAGS.INCLUDE_PARTNERS)
+        signal_mapper.setMapping(self.show_partners, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
 
         self.connect_partners.stateChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.connect_partners, FAMILY_FLAGS.CONNECT_PARTNERS)
+        signal_mapper.setMapping(self.connect_partners, flags.FAMILY_FLAGS.CONNECT_PARTNERS)
 
         self.icon_display.currentIndexChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.icon_display, TREE_ICON_DISPLAY.BASE)
+        signal_mapper.setMapping(self.icon_display, flags.TREE_ICON_DISPLAY.BASE)
 
         self.family_select.currentTextChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.family_select, GROUP_SELECTION_ITEM.FAMILY)
+        signal_mapper.setMapping(self.family_select, flags.GROUP_SELECTION_ITEM.FAMILY)
 
         self.kingdom_select.currentTextChanged.connect(signal_mapper.map)
-        signal_mapper.setMapping(self.kingdom_select, GROUP_SELECTION_ITEM.KINGDOM)
+        signal_mapper.setMapping(self.kingdom_select, flags.GROUP_SELECTION_ITEM.KINGDOM)
 
         signal_mapper.mapped[int].connect(self.controlSignals)
 
     @qtc.pyqtSlot(int)
     def controlSignals(self, value):
-        if value == TREE_ICON_DISPLAY.BASE:
+        if value == flags.TREE_ICON_DISPLAY.BASE:
             selection = value + self.icon_display.currentIndex() + 1
-            if selection in TREE_ICON_DISPLAY._value2member_map_:
-                self.filtersChanged.emit(TREE_ICON_DISPLAY.BASE, selection)
+            if selection in flags.TREE_ICON_DISPLAY._value2member_map_:
+                self.filtersChanged.emit(flags.TREE_ICON_DISPLAY.BASE, selection)
             return
-        if value == GROUP_SELECTION_ITEM.FAMILY:
+        if value == flags.GROUP_SELECTION_ITEM.FAMILY:
             selection = self.family_select.currentText()
-            self.selectionChanged.emit(GROUP_SELECTION_ITEM.FAMILY, selection)
+            self.selectionChanged.emit(flags.GROUP_SELECTION_ITEM.FAMILY, selection)
             return
         
-        if value == GROUP_SELECTION_ITEM.KINGDOM:
+        if value == flags.GROUP_SELECTION_ITEM.KINGDOM:
             selection = self.kingdom_select.currentText()
-            self.selectionChanged.emit(GROUP_SELECTION_ITEM.KINGDOM, selection)
+            self.selectionChanged.emit(flags.GROUP_SELECTION_ITEM.KINGDOM, selection)
             return
         
-        self.filtersChanged.emit(FAMILY_FLAGS.BASE, value)
+        self.filtersChanged.emit(flags.FAMILY_FLAGS.BASE, value)
 
     @qtc.pyqtSlot(int, list)
     def updateSelections(self, flag, value_changes):
-        if flag == SELECTIONS_UPDATE.ADDED_FAM:
+        if flag == flags.SELECTIONS_UPDATE.ADDED_FAM:
             model = self.family_select.model()
             index = self.family_select.count()
             self.family_select.blockSignals(True)
@@ -174,14 +174,14 @@ class TreeControlPanel(qtw.QDockWidget):
                 index += 1
             self.family_select.blockSignals(False)
         
-        elif flag == SELECTIONS_UPDATE.REMOVED_FAM:
+        elif flag == flags.SELECTIONS_UPDATE.REMOVED_FAM:
             self.family_select.blockSignals(True)
             for fam in value_changes:
                 index = self.family_select.findText(fam['fam_name'])
                 self.family_select.removeItem(index)
             self.family_select.blockSignals(False)
             
-        elif flag == SELECTIONS_UPDATE.ADDED_KINGDOM:
+        elif flag == flags.SELECTIONS_UPDATE.ADDED_KINGDOM:
             model = self.kingdom_select.model()
             index = self.kingdom_select.count()
             self.kingdom_select.blockSignals(True)
@@ -195,17 +195,17 @@ class TreeControlPanel(qtw.QDockWidget):
                 index += 1
             self.kingdom_select.blockSignals(False)
 
-        elif flag == SELECTIONS_UPDATE.REMOVED_KINGDOM:
+        elif flag == flags.SELECTIONS_UPDATE.REMOVED_KINGDOM:
             print('Update selection, removed kingdom - in construction')
 
     @qtc.pyqtSlot(int, int)
     def updateFilters(self, flag, value):
-        if flag == FAMILY_FLAGS.BASE:
-            if value == FAMILY_FLAGS.DISPLAY_RULERS:
+        if flag == flags.FAMILY_FLAGS.BASE:
+            if value == flags.FAMILY_FLAGS.DISPLAY_RULERS:
                 print('Update filters, display ruler - in construction')
-            elif value == FAMILY_FLAGS.DISPLAY_FAM_NAMES:
+            elif value == flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES:
                 print('Update filters, display fam names - in construction')
-            elif value == FAMILY_FLAGS.INCLUDE_PARTNERS:
+            elif value == flags.FAMILY_FLAGS.INCLUDE_PARTNERS:
                 # self.show_partners.blockSignals(True)
                 self.show_partners.setChecked(not self.show_partners.isChecked())
                 # self.show_partners.blockSignals(False)

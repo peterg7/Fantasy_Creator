@@ -9,7 +9,7 @@ import sys
 import time
 
 # External resources
-import resources
+from resources import resources
 
 # Opening window
 class WelcomeWindow(qtw.QDialog):

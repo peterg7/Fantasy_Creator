@@ -2,7 +2,6 @@
 from PyQt5.QtCore import QPointF, QRectF, QBuffer, QIODevice, QByteArray
 from PyQt5.QtGui import QImage
 from PyQt5 import QtWidgets as qtw
-# from PyQt5 import QtCore as qtc
 
 # 3rd party
 from tinydb import TinyDB, where
@@ -17,7 +16,7 @@ import uuid
 import base64
 
 # User-defined Modules
-from storyTime import Time
+from Mechanics.storyTime import Time
 
 iteritems = getattr(dict, 'iteritems', dict.items)
 itervalues = getattr(dict, 'itervalues', dict.values)

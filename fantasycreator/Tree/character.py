@@ -10,11 +10,11 @@ import uuid
 import datetime
 
 # User-defined Modules
-from flags import TREE_ICON_DISPLAY, EVENT_TYPE
-from storyTime import Time, DateLineEdit
+from Mechanics.flags import TREE_ICON_DISPLAY, EVENT_TYPE
+from Mechanics.storyTime import Time, DateLineEdit
 
 # External resources
-import resources
+from resources import resources
 
 
 # Create Character class

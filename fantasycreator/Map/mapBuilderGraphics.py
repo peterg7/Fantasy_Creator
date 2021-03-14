@@ -14,13 +14,13 @@ import types
 import uuid
 
 # User-defined Modules
-from character import PictureLineEdit, PictureEditor, CharacterView, CharacterCreator
-from database import DataFormatter
-from mapBuilderObjects import GraphicCharacter, GraphicLocation, LocationView, LocationCreator
-from mapBuilderObjects import CharacterSelect, TimestampCreator, LocationSelect
-from animator import Animator
-from storyTime import Time
-from flags import ANIMATION_MODE, EVENT_TYPE
+from .mapBuilderObjects import GraphicCharacter, GraphicLocation, LocationView, LocationCreator
+from .mapBuilderObjects import CharacterSelect, TimestampCreator, LocationSelect
+from Tree.character import PictureLineEdit, PictureEditor, CharacterView, CharacterCreator
+from Data.database import DataFormatter
+from Mechanics.animator import Animator
+from Mechanics.storyTime import Time
+from Mechanics.flags import ANIMATION_MODE, EVENT_TYPE
 
 class MapView(qtw.QGraphicsView):
 

@@ -13,7 +13,7 @@ import numpy as np
 from tinydb import where
 
 # User-defined Modules
-from character import Character
+from Tree.character import Character
 
 
 # Create Look Up table view
