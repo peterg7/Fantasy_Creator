@@ -16,7 +16,8 @@ import uuid
 # User-defined Modules
 from .mapBuilderObjects import GraphicCharacter, GraphicLocation, LocationView, LocationCreator
 from .mapBuilderObjects import CharacterSelect, TimestampCreator, LocationSelect
-from Tree.character import PictureLineEdit, PictureEditor, CharacterView, CharacterCreator
+from Dialogs.pictureEditor import PictureLineEdit, PictureEditor 
+from Tree.treeAccessories import CharacterView, CharacterCreator
 from Data.database import DataFormatter
 from Mechanics.animator import Animator
 from Mechanics.storyTime import Time

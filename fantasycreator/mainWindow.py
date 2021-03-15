@@ -70,10 +70,10 @@ from Map.mapBuilderTab import MapBuilderTab
 from Scroll.scrollTab import ScrollTab
 from Data.database import VolatileDB
 from Data.characterLookup import LookUpTableModel, LookUpTableView
-from Popups.aboutWindow import AboutWindow
-from Popups.bugReporter import BugReporter
-from Popups.welcomeWindow import WelcomeWindow
-from Popups.preferencesWindow import PreferencesWindow
+from Dialogs.aboutWindow import AboutWindow
+from Dialogs.bugReporter import BugReporter
+from Dialogs.welcomeWindow import WelcomeWindow
+from Dialogs.preferencesWindow import PreferencesWindow
 from Mechanics.separableTabs import DetachableTabWidget
 from Mechanics.materializer import Materializer
 from Mechanics.storyTime import TimeConstants, Time
@@ -196,7 +196,7 @@ class MainWindow(qtw.QMainWindow):
         self.treetab.tableview.setModel(self.table_model)
         self.timetab.tableview.setModel(self.table_model)
 
-        ## Establish signals/connections
+        ##----------- Establish signals/connections --------------##
         # SAVE REQUESTS
         self.global_save.connect(self.treetab.saveRequest)
         self.global_save.connect(self.timetab.saveRequest)
@@ -211,36 +211,36 @@ class MainWindow(qtw.QMainWindow):
         self.time_change.connect(self.table_model.preferenceUpdate)
         self.time_change.connect(self.timetab.timelineview.handleTimeChange)
 
-        self.table_model.cell_changed.connect(self.treetab.treeview.receiveCharacterUpdate)
+        self.table_model.cell_changed.connect(self.treetab.tree.receiveCharacterUpdate)
         self.table_model.visible_change.connect(self.timetab.timelineview.toggleCharViz)
 
         # TREE ORIGINATING SIGNALS
-        self.treetab.tableview.char_selected.connect(self.treetab.treeview.add_character_view)
-        self.treetab.treeview.addedChars.connect(self.table_model.insertNewChars)
-        self.treetab.treeview.removedChars.connect(self.table_model.removeChars)
-        self.treetab.treeview.updatedChars.connect(self.table_model.updateChars)
+        self.treetab.tableview.char_selected.connect(self.treetab.treeview.addCharacterView)
+        self.treetab.tree.addedChars.connect(self.table_model.insertNewChars)
+        self.treetab.tree.removedChars.connect(self.table_model.removeChars)
+        self.treetab.tree.updatedChars.connect(self.table_model.updateChars)
         self.treetab.treeview.tempStatusbarMsg.connect(self.statusBar().showMessage)
         
-        self.treetab.treeview.addedChars.connect(self.timetab.timelineview.addChars)
-        self.treetab.treeview.removedChars.connect(self.timetab.timelineview.removeChars)
-        self.treetab.treeview.updatedChars.connect(self.timetab.timelineview.updateChars)
+        self.treetab.tree.addedChars.connect(self.timetab.timelineview.addChars)
+        self.treetab.tree.removedChars.connect(self.timetab.timelineview.removeChars)
+        self.treetab.tree.updatedChars.connect(self.timetab.timelineview.updateChars)
 
-        self.treetab.treeview.addedChars.connect(self.scrolltab.scroll_widget.addChars)
-        self.treetab.treeview.removedChars.connect(self.scrolltab.scroll_widget.removeChars)
-        self.treetab.treeview.updatedChars.connect(self.scrolltab.scroll_widget.updateChars)
+        self.treetab.tree.addedChars.connect(self.scrolltab.scroll_widget.addChars)
+        self.treetab.tree.removedChars.connect(self.scrolltab.scroll_widget.removeChars)
+        self.treetab.tree.updatedChars.connect(self.scrolltab.scroll_widget.updateChars)
 
-        self.treetab.treeview.updatedChars.connect(self.maptab.mapview.updateChars)
+        self.treetab.tree.updatedChars.connect(self.maptab.mapview.updateChars)
 
         # TIMELINE ORIGINATING SIGNALS
         self.timetab.timelineview.updatedChars.connect(self.table_model.updateChars)
         self.timetab.timelineview.updatedChars.connect(self.scrolltab.scroll_widget.updateChars)
-        self.timetab.timelineview.updatedChars.connect(self.treetab.treeview.updateChars)
+        self.timetab.timelineview.updatedChars.connect(self.treetab.tree.updateChars)
         self.timetab.timelineview.updatedChars.connect(self.maptab.mapview.updateChars)
 
         # MAP ORIGINATING SIGNALS
         self.maptab.mapview.updatedChars.connect(self.table_model.updateChars)
         self.maptab.mapview.updatedChars.connect(self.scrolltab.scroll_widget.updateChars)
-        self.maptab.mapview.updatedChars.connect(self.treetab.treeview.updateChars)
+        self.maptab.mapview.updatedChars.connect(self.treetab.tree.updateChars)
         self.maptab.mapview.updatedChars.connect(self.timetab.timelineview.updateChars)
 
         # SCROLL ORIGINATING SIGNALS

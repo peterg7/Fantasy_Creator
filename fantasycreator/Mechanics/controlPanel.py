@@ -11,13 +11,13 @@ import sys
 import Mechanics.flags as flags
 
 # Create Control widget
-class TreeControlPanel(qtw.QDockWidget):
+class ControlPanel(qtw.QDockWidget):
 
     filtersChanged = qtc.pyqtSignal(int, int)
     selectionChanged = qtc.pyqtSignal(int, str)
 
     def __init__(self, parent=None):
-        super(TreeControlPanel, self).__init__(parent)
+        super(ControlPanel, self).__init__(parent)
 
         self.setWindowTitle('Control Panel')
         self.setAllowedAreas(qtc.Qt.RightDockWidgetArea | 
@@ -102,8 +102,6 @@ class TreeControlPanel(qtw.QDockWidget):
         selection_groupbox.setLayout(selection_layout)
         selection_groupbox.setFont(groupbox_font)
         # View Groupbox
-
-        
 
         layout.addWidget(filters_groupbox)
         layout.addWidget(selection_groupbox)

@@ -1,3 +1,19 @@
+''' Tab module that holds the tree graphics
+
+Created by MainWindow at launch, this class connects signals from the tree
+to other modules in the program as well as sets up the general graphics of this
+tab such as toolbars, control panel, etc.
+
+Copyright (c) 2020 Peter C Gish
+
+See the MIT License (MIT) for more information. You should have received a copy
+of the MIT License along with this program. If not, see 
+<https://www.mit.edu/~amini/LICENSE.md>.
+'''
+__author__ = "Peter C Gish"
+__date__ = "3/14/21"
+__maintainer__ = "Peter C Gish"
+__version__ = "1.0.1"
 
 # PyQt
 from PyQt5 import QtWidgets as qtw
@@ -6,8 +22,9 @@ from PyQt5 import QtGui as qtg
 
 # User-defined Modules
 from .treeGraphics import TreeView
+from .tree import Tree
 from Data.characterLookup import LookUpTableView
-from Popups.controlPanel import TreeControlPanel
+from Mechanics.controlPanel import ControlPanel
 
 
 # Create Tree tab 
@@ -22,6 +39,8 @@ class TreeTab(qtw.QMainWindow):
         # Setup and layout
         self.layout = qtw.QHBoxLayout()
         self.splitter = qtw.QSplitter()
+
+        self.tree = Tree(self)
 
         self.treeview = TreeView(self)
 
@@ -39,9 +58,24 @@ class TreeTab(qtw.QMainWindow):
         # self.layout.addWidget(self.splitter)
         # self.setLayout(self.layout)
 
+        # Connect tree and treeview
+        self.tree.sceneUpdate.connect(self.treeview.updateView)
+        self.tree.addFamToScene.connect(self.treeview.addFamily)
+        self.tree.delFamFromScene.connect(self.treeview.delFamily)
+        self.tree.sceneReset.connect(self.treeview.resetView)
+        self.tree.charRequest.connect(self.treeview.requestCharacter)
+        self.treeview.charSelection.connect(self.tree.receiveCharacter)
+        self.tree.addCharEdit.connect(self.treeview.addCharacterEdit)
+        self.treeview.charEdited.connect(self.tree.receiveCharacterUpdate)
+        self.treeview.addNewChar.connect(self.tree.addNewCharacter)
+        self.tree.requestNewChar.connect(self.treeview.createCharacter)
+        self.tree.requestNewFam.connect(self.treeview.gatherFamName)
+        self.treeview.newFamInfo.connect(self.tree.createFamily)
+        self.treeview.newFamInfo.connect(self.tree.addNewFamily)
+
 
         ## Control Panel
-        self.control_panel = TreeControlPanel(self)
+        self.control_panel = ControlPanel(self)
         self.addDockWidget(qtc.Qt.RightDockWidgetArea, self.control_panel)
         self.control_panel.filtersChanged.connect(self.handleFilters)
         self.control_panel.selectionChanged.connect(self.handleFilters)
@@ -50,11 +84,11 @@ class TreeTab(qtw.QMainWindow):
         self.control_panel.dockLocationChanged.connect(self.handlePanelLoc)
 
         # Connect signals
-        self.treeview.familiesAdded.connect(self.control_panel.updateSelections)
-        self.treeview.familiesRemoved.connect(self.control_panel.updateSelections)
-        self.treeview.kingdomsAdded.connect(self.control_panel.updateSelections)
-        self.treeview.kingdomsRemoved.connect(self.control_panel.updateSelections)
-        self.treeview.requestFilterChange.connect(self.control_panel.updateFilters)
+        self.tree.familiesAdded.connect(self.control_panel.updateSelections)
+        self.tree.familiesRemoved.connect(self.control_panel.updateSelections)
+        self.tree.kingdomsAdded.connect(self.control_panel.updateSelections)
+        self.tree.kingdomsRemoved.connect(self.control_panel.updateSelections)
+        self.tree.requestFilterChange.connect(self.control_panel.updateFilters)
 
         # Create toolbar
         self.toolbar = qtw.QToolBar(self)
@@ -78,7 +112,7 @@ class TreeTab(qtw.QMainWindow):
             qtg.QIcon(':/toolbar-icons/add_family_icon.png'),
             'Add Family'
         )
-        add_char_act.triggered.connect(self.treeview.createFamily)
+        add_char_act.triggered.connect(self.tree.createFamily)
         
         self.add_add_separator = self.toolbar.addSeparator()
 
@@ -88,7 +122,7 @@ class TreeTab(qtw.QMainWindow):
             'Add Character'
         )
         self.add_char_act.triggered.connect(self.treeview.createCharacter)
-        self.treeview.hideAddCharacter.connect(self.setCharAddBtn)
+        self.tree.hideAddCharacter.connect(self.setCharAddBtn)
 
         self.add_del_separator = self.toolbar.addSeparator()
 
@@ -131,7 +165,7 @@ class TreeTab(qtw.QMainWindow):
         pan_btn.setCheckable(True)
         pan_btn.setToolTip('Pan')
         pan_act = self.toolbar.addWidget(pan_btn)
-        pan_btn.toggled.connect(self.treeview.toggle_panning)
+        pan_btn.toggled.connect(self.treeview.togglePanning)
 
         # Add view fit action
         fit_view_btn = qtw.QToolButton(self)
@@ -181,10 +215,10 @@ class TreeTab(qtw.QMainWindow):
     ## Auxiliary Functions ##
 
     def build_tree(self, db):
-        # self.resize(size)
-        self.treeview.connect_db(db)
-        self.treeview.init_tree_view()
-        self.treeview.init_char_dialogs()
+        self.tree.connectDB(db)
+        self.treeview.connectDB(db)
+        self.tree.initTree()
+        self.tree.initCharCombos()
         self.tableview.adjustView()
         self.tree_loaded.emit()
     ## Custom Slots ##
@@ -192,7 +226,7 @@ class TreeTab(qtw.QMainWindow):
     @qtc.pyqtSlot(int, str)
     @qtc.pyqtSlot(int, int)
     def handleFilters(self, flag_type, flag):
-        self.treeview.filter_tree(flag_type, flag)
+        self.tree.filterTree(flag_type, flag)
 
     @qtc.pyqtSlot(int)
     def handleZoomChange(self, value):
@@ -247,4 +281,4 @@ class TreeTab(qtw.QMainWindow):
     @qtc.pyqtSlot()
     def preferenceUpdate(self):
         print('Tree: Received preference notification...')
-        self.treeview.updatePreferences()
+        self.tree.updatePreferences()

@@ -1,3 +1,20 @@
+''' Responsible for the storage, manipulation, and display of characters.
+
+The family object forms the backbone of the tree. Every character is placed
+in a family (potentially of size 1). Characters can be added/removed, partners
+can be added/removed, and various display options can be set. 
+
+Copyright (c) 2020 Peter C Gish
+
+See the MIT License (MIT) for more information. You should have received a copy
+of the MIT License along with this program. If not, see 
+<https://www.mit.edu/~amini/LICENSE.md>.
+'''
+__author__ = "Peter C Gish"
+__date__ = "3/14/21"
+__maintainer__ = "Peter C Gish"
+__version__ = "1.0.1"
+
 
 # PyQt
 from PyQt5 import QtWidgets as qtw
@@ -24,6 +41,7 @@ from Mechanics.flags import FAM_TYPE
 
 class Family(qtw.QGraphicsObject):
 
+    ## Custom signals
     edit_char = qtc.pyqtSignal(uuid.UUID)
     add_descendant = qtc.pyqtSignal(uuid.UUID)
     remove_character = qtc.pyqtSignal(uuid.UUID)
@@ -97,21 +115,23 @@ class Family(qtw.QGraphicsObject):
         child.setParent(self)
         child.setParentItem(self)
         self._size += 1
-
-    def addChildRelationship(self, child, parent):
-        self.tree.addNode(child, self.tree.getNode(parent))
-        # self.members.add(child)
-        # child.setTreeID(self._id)
-        # child.setParent(self)
-        # child.setParentItem(self)
-        # self._size += 1
     
-    def removeChild(self, child):
-        if self.tree.removeNode(child):
-            self._size -= 1
-            return True
-        return False
-
+    def addParent(self, parent, child):
+        parent.setParent(self)
+        parent.setParentItem(self)
+        parent.setTreeID(self._id)
+        self.members.add(parent)
+        if child == self._first_gen[0]:
+            self.tree.addParent(parent)
+            self._first_gen[0] = parent
+            if self._first_gen[1]:
+                self.partners.add(self._first_gen[1])
+                self._first_gen[1] = None
+            if self.scene():
+                self.installFilters()
+        else:
+            self.tree.addParent(parent, self.tree.getNode(child))
+    
     def addMate(self, mate, r_id, fam_member):
         mate_clone = Character(mate.toDict())
         mate_clone.setTreeID(self._id)
@@ -129,135 +149,26 @@ class Family(qtw.QGraphicsObject):
             self._first_gen[1] = mate
         else:
             self.partners.add(mate)
+
+    def addChildRelationship(self, child, parent):
+        self.tree.addNode(child, self.tree.getNode(parent))
+        # self.members.add(child)
+        # child.setTreeID(self._id)
+        # child.setParent(self)
+        # child.setParentItem(self)
+        # self._size += 1
     
+    def removeChild(self, child):
+        if self.tree.removeNode(child):
+            self._size -= 1
+            return True
+        return False
+
     def removeMate(self, fam_member, mate):
         if self.tree.removeMate(fam_member, mate):
             return True
         return False
-
-    # def updateFirstGen(self, parent):
-    #     if parent in self._first_gen:
-    #         self._tree_loc.setY(self._first_gen[0].y())
-    #         # set midpoint
-    #         self._tree_loc.setX((self._first_gen[0].x() + self._first_gen[1].x()) / 2)
-
-    def addParent(self, parent, child):
-        parent.setParent(self)
-        parent.setParentItem(self)
-        parent.setTreeID(self._id)
-        self.members.add(parent)
-        if child == self._first_gen[0]:
-            self.tree.addParent(parent)
-            self._first_gen[0] = parent
-            if self._first_gen[1]:
-                self.partners.add(self._first_gen[1])
-                self._first_gen[1] = None
-            if self.scene():
-                self.installFilters()
-        else:
-            self.tree.addParent(parent, self.tree.getNode(child))
-        
-        
-
-    # Getters & Setters
-    def getID(self):
-        return self._id
     
-    def getName(self):
-        return self._name
-    
-    def getSize(self):
-        return self._size
-    
-    def getFirstGen(self):
-        return self._first_gen
-    
-    def getChildren(self, parent):
-        return self.tree.getNode(parent).getChildren()
-
-    def getAllMembers(self):
-        return self.members.arr
-
-    def getMembersAndPartners(self):
-        if self._first_gen[1]:
-            return self.members.arr + self.partners.arr + [self._first_gen[1]]
-        else:
-            return self.members.arr + self.partners.arr
-
-    def getMember(self, member):
-        return self.tree.getNode(member)
-    
-    def getRoot(self):
-        return self.tree.getRoot()
-    
-    def getPartners(self):
-        return self.partners.arr
-
-    def getRootPos(self):
-        return self._tree_loc
-
-    def setName(self, name):
-        self._name = name
-    
-    def setType(self, _type):
-        self._term_type = _type
-
-    def setRootPos(self, pos):
-        self._tree_loc.setX(pos.x())
-        self._tree_loc.setY(pos.y())
-
-    
-    def setRootHeight(self, height):
-        self.tree.root.setHeight(height)
-
-    def setFirstGen(self, index, char, r_id):
-        if 0 <= index < 2:
-            char_clone = Character(char.toDict())
-            char_clone.setTreeID(self._id)
-            self._first_gen[index] = char_clone
-            self.tree.addMate(self._first_gen[1], r_id)
-            return char_clone
-    
-    def setChildren(self, children):
-        for child in tuple(children):
-            self.tree.addNode(child, self.tree.getRoot())
-            self.members.add(child)
-            self._size += 1
-    
-    def setNameDisplay(self, state):
-        self._name_display = state
-        if not state and self.scene():
-            self.scene().removeItem(self.name_graphic)
-            self.name_graphic.setParentItem(None)
-        else:
-            self.name_graphic.setParentItem(self)
-            self.name_graphic.installSceneEventFilter(self)
-    
-    def includeFirstGen(self, state):
-        self._display_root_partner = state
-        if not self._display_root_partner and self.scene() and self._first_gen[1]:
-                self.scene().removeItem(self._first_gen[1])
-                self._first_gen[1].setParent(None)
-                self._first_gen[1].setParentItem(None)
-        else:
-            if self._first_gen[1] and self.scene():
-                self._first_gen[1].setParent(self)
-                self._first_gen[1].setParentItem(self)
-                self._first_gen[1].installSceneEventFilter(self)
-    
-    def explodeFamily(self, state):
-        self._explode = state
-        if not self._explode and self.scene():
-            for char in self.partners:
-                self.scene().removeItem(char)
-                char.setParent(None)
-                char.setParentItem(None)
-        else:
-            for char in self.partners:
-                char.setParent(self)
-                char.setParentItem(self)
-    
-
     def delete_character(self, char_id):
 
         char_removal = True
@@ -271,7 +182,6 @@ class Family(qtw.QGraphicsObject):
                 if not self.splitFirstGen(self._first_gen[1], char):
                     return False, False
                 partner_removal = True
-                    
             
             else:
                 if char_node.getMates():
@@ -359,7 +269,6 @@ class Family(qtw.QGraphicsObject):
         return True
     
     def splitFirstGen(self, remaining_char, removed_char):
-        
         if remaining_char != self._first_gen[0]:
             self._first_gen[0], self._first_gen[1] = self._first_gen[1], self._first_gen[0]
             old_root = self.members.search(removed_char)[0]
@@ -387,7 +296,109 @@ class Family(qtw.QGraphicsObject):
                 self.delete_fam.emit(self._id)
             return True
         return False
-        
+
+    # def updateFirstGen(self, parent):
+    #     if parent in self._first_gen:
+    #         self._tree_loc.setY(self._first_gen[0].y())
+    #         # set midpoint
+    #         self._tree_loc.setX((self._first_gen[0].x() + self._first_gen[1].x()) / 2)    
+
+    # Getters & Setters
+    def getID(self):
+        return self._id
+    
+    def getName(self):
+        return self._name
+    
+    def getSize(self):
+        return self._size
+    
+    def getFirstGen(self):
+        return self._first_gen
+    
+    def getChildren(self, parent):
+        return self.tree.getNode(parent).getChildren()
+
+    def getAllMembers(self):
+        return self.members.arr
+
+    def getMembersAndPartners(self):
+        if self._first_gen[1]:
+            return self.members.arr + self.partners.arr + [self._first_gen[1]]
+        else:
+            return self.members.arr + self.partners.arr
+
+    def getMember(self, member):
+        return self.tree.getNode(member)
+    
+    def getRoot(self):
+        return self.tree.getRoot()
+    
+    def getPartners(self):
+        return self.partners.arr
+
+    def getRootPos(self):
+        return self._tree_loc
+
+    def setName(self, name):
+        self._name = name
+    
+    def setType(self, _type):
+        self._term_type = _type
+
+    def setRootPos(self, pos):
+        self._tree_loc.setX(pos.x())
+        self._tree_loc.setY(pos.y())
+    
+    def setRootHeight(self, height):
+        self.tree.root.setHeight(height)
+
+    def setFirstGen(self, index, char, r_id):
+        if 0 <= index < 2:
+            char_clone = Character(char.toDict())
+            char_clone.setTreeID(self._id)
+            self._first_gen[index] = char_clone
+            self.tree.addMate(self._first_gen[1], r_id)
+            return char_clone
+    
+    def setChildren(self, children):
+        for child in tuple(children):
+            self.tree.addNode(child, self.tree.getRoot())
+            self.members.add(child)
+            self._size += 1
+    
+    def setNameDisplay(self, state):
+        self._name_display = state
+        if not state and self.scene():
+            self.scene().removeItem(self.name_graphic)
+            self.name_graphic.setParentItem(None)
+        else:
+            self.name_graphic.setParentItem(self)
+            self.name_graphic.installSceneEventFilter(self)
+    
+    def includeFirstGen(self, state):
+        self._display_root_partner = state
+        if not self._display_root_partner and self.scene() and self._first_gen[1]:
+                self.scene().removeItem(self._first_gen[1])
+                self._first_gen[1].setParent(None)
+                self._first_gen[1].setParentItem(None)
+        else:
+            if self._first_gen[1] and self.scene():
+                self._first_gen[1].setParent(self)
+                self._first_gen[1].setParentItem(self)
+                self._first_gen[1].installSceneEventFilter(self)
+    
+    def explodeFamily(self, state):
+        self._explode = state
+        if not self._explode and self.scene():
+            for char in self.partners:
+                self.scene().removeItem(char)
+                char.setParent(None)
+                char.setParentItem(None)
+        else:
+            for char in self.partners:
+                char.setParent(self)
+                char.setParentItem(self)
 
     def installFilters(self):
         self._first_gen[0].installSceneEventFilter(self)
@@ -412,7 +423,7 @@ class Family(qtw.QGraphicsObject):
         
 
 
-    ## WORKHORSE, DRAWING FUNCTIONS
+    ## ------------------- WORKHORSE, DRAWING FUNCTIONS ------------------- ##
     FIXED_Y = 300 # mimic fixed/standardized character height?
     FIXED_X = 100 # mimic fixed image width
     DESC_DROPDOWN = 125
@@ -420,7 +431,6 @@ class Family(qtw.QGraphicsObject):
 
     EXPAND_CONSTANT = 20 # used to stretch tree horizontally
     OFFSET_CONSTANT = 12 # used to streth each level based on number of sibs + height
-
 
     # Workhorse function to create graph struct from tree
     def set_grid(self):
@@ -544,14 +554,11 @@ class Family(qtw.QGraphicsObject):
                         parent_id = temp_node.getPartnerships()[0][1]
                         parent_x = self.graph.get_vertex(parent_id).get_data().x()
                         # print(f'Parent: {parent_id} @ {parent_x}')
-                    
-                    
+                                    
                     else:
                         parent_id = parent_char.getID()
                         parent_x = parent_char.x()
     
-                    
-                    
                     num_children = len(temp_node.getChildren()) 
                     current_height = temp_node.getHeight() + 1
                     
@@ -577,7 +584,6 @@ class Family(qtw.QGraphicsObject):
                         loc = qtc.QPointF()
                         
                         current_x = (ratio_mult * current_x_spacer) + parent_x
-
 
                         loc.setY(current_height * self.FIXED_Y + self._tree_loc.y())
                         loc.setX(current_x)
@@ -619,7 +625,6 @@ class Family(qtw.QGraphicsObject):
                         ratio_mult += 1
                         char_pos += 1
                         
-                    
                         if self._explode and child_node.getMates() != []:
                             num_partners = len(child_node.getMates())
                             start_x = 0
@@ -864,7 +869,6 @@ class Family(qtw.QGraphicsObject):
                                             root.y() - size.height())
             self._shape.addRect(self.name_graphic.sceneBoundingRect())
             
-        
 
     def reset_family(self):
         self.current_lines[:] = []
@@ -894,8 +898,6 @@ class Family(qtw.QGraphicsObject):
         if self._name_display and self._name:
             self.name_graphic.paint(painter, option, widget)
 
-
-    
     def shape(self):
         return self._shape
 

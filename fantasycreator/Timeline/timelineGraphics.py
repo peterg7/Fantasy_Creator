@@ -13,7 +13,7 @@ import uuid
 # User-defined Modules
 from .timelineEntries import TimelineCharEntry, MainTimelineAxis, TimelineEntry
 from .timelineEntries import TimelineEventEntry, EntryView, EventCreator
-from Tree.character import CharacterView, CharacterCreator
+from Tree.treeAccessories import CharacterView, CharacterCreator
 from Data.hashList import HashList
 from Data.database import DataFormatter
 from Mechanics.materializer import Materializer

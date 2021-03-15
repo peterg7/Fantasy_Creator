@@ -11,7 +11,8 @@ from tinydb import where
 import uuid
 
 # User-defined Modules
-from Tree.character import Character, UserLineInput
+from Dialogs.lineInputs import UserLineInput
+from Tree.character import Character
 from Data.database import DataFormatter
 from Mechanics.storyTime import DateLineEdit
 
