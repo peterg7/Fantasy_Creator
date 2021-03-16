@@ -11,7 +11,7 @@ of the MIT License along with this program. If not, see
 <https://www.mit.edu/~amini/LICENSE.md>.
 '''
 __author__ = "Peter C Gish"
-__date__ = "3/14/21"
+__date__ = "3/15/21"
 __maintainer__ = "Peter C Gish"
 __version__ = "1.0.1"
 
@@ -39,7 +39,13 @@ from Data.hashList import HashList
 from Mechanics.flags import FAM_TYPE
 
 
+# TODO: Need to add more checks on incoming parameters. Too many assumptions 
+
 class Family(qtw.QGraphicsObject):
+    ''' Graphical object to store families. Responsible for maintaining relationships,
+    character existence, and graphical positioning. Communicates with TreeView
+    and TreeScene for displaying characters.
+    '''
 
     ## Custom signals
     edit_char = qtc.pyqtSignal(uuid.UUID)
@@ -56,7 +62,20 @@ class Family(qtw.QGraphicsObject):
     ROOT_ANCHOR = qtc.QPointF(5000, 150) # default "origin point"
 
     def __init__(self, first_gen, family_id, family_type=FAM_TYPE.NULL_TERM, family_name=None, pos=None, parent=None):
+        ''' Constructor. Instantiates the family and declares member variables.
+        Builds the family with the character(s) passed in as first_gen
+
+        Args:
+            first_gen - (Required) list of character(s) to be the head(s) of this family
+            family_id - (Required) uuid of this family 
+            family_type - optional flag indicating the type of this family
+            family_name - optional string name tied to this family
+            pos - optional graphical position for this tree's initial location
+            parent - optional parent object of this family
+        '''
         super(Family, self).__init__(parent)
+
+        ## Create member variables
         self._name = family_name
         self._first_gen = first_gen
         self._id = family_id
@@ -73,9 +92,9 @@ class Family(qtw.QGraphicsObject):
         self.partners = HashList()
         self.filtered = HashList()
 
+        # Member variables for graphics
         self.current_lines = []
         self.linePen = qtg.QPen(qtg.QColor('black'), 3)
-        # self.namePen = qtg.QPen(qtg.QColor('black'), 2)
         self.font = qtg.QFont('Didot', 45, italic=True)
         self.font_metric = qtg.QFontMetrics(self.font)
         self.name_graphic = qtw.QGraphicsTextItem()
@@ -86,8 +105,8 @@ class Family(qtw.QGraphicsObject):
 
         self.setFlags(qtw.QGraphicsItem.ItemIsMovable)
 
+        # Establish first generation
         self.members.add(self._first_gen[0])
-        
         if len(first_gen) == 1:
             self._first_gen.append(None)
         else:
@@ -98,6 +117,9 @@ class Family(qtw.QGraphicsObject):
         self.initFirstGen()
 
     def initFirstGen(self):
+        ''' Add first generation to the scene by declaring the family object
+        as their parent. Checks for presence of two characters
+        '''
         # self._first_gen[0].setZValue(2)
         self._first_gen[0].setParent(self)
         self._first_gen[0].setParentItem(self)
@@ -107,8 +129,14 @@ class Family(qtw.QGraphicsObject):
             self._first_gen[1].setParentItem(self)
         # self.setNameDisplay(self._name_display)
 
-
     def addChild(self, child, parent):
+        ''' Adds a child character to the supplied parent. Subsequently adds
+        the new child to the scene
+
+        Args:
+            child - new character object to be added to this family
+            parent - character that will be the parent of child
+        '''
         self.tree.addNode(child, self.tree.getNode(parent))
         self.members.add(child)
         child.setTreeID(self._id)
@@ -117,6 +145,13 @@ class Family(qtw.QGraphicsObject):
         self._size += 1
     
     def addParent(self, parent, child):
+        ''' Adds a parent to a given child. Shifts the child's parents so
+        they are now grandparents and the new parent has the childs old parents
+
+        Args:
+            parent - new character to serve as a parent to child
+            child - character to be the dependent of parent
+        '''
         parent.setParent(self)
         parent.setParentItem(self)
         parent.setTreeID(self._id)
@@ -132,7 +167,26 @@ class Family(qtw.QGraphicsObject):
         else:
             self.tree.addParent(parent, self.tree.getNode(child))
     
+    def addChildRelationship(self, child, parent):
+        ''' Simple method to add a child to a parent by inserting child
+        into the tree
+
+        Args:
+            child - new child character to be added to the tree
+            parent - character in this tree to serve as the parent of child
+        '''
+        self.tree.addNode(child, self.tree.getNode(parent))
+    
     def addMate(self, mate, r_id, fam_member):
+        ''' Creates a partnership between the two supplied parents. Clones
+        the first character passed in and adds the clone to this tree. Returns
+        this new clone object
+
+        Args:
+            mate - character object to be cloned and paired with fam_member
+            r_id - the id of the new relationship
+            fam_member - character belonging to this tree that will be the new partner
+        '''
         mate_clone = Character(mate.toDict())
         mate_clone.setTreeID(self._id)
         self.tree.addMate(mate_clone, r_id, self.tree.getNode(fam_member))
@@ -143,6 +197,14 @@ class Family(qtw.QGraphicsObject):
         return mate_clone
     
     def addMateNoClone(self, mate, r_id, fam_member):
+        ''' Specialized method to add a partnership without creating a clone.
+        This is necessary when 
+
+        Args:
+            mate - character to be partnered with fam_member
+            r_id - uuid assigned to this partnership
+            fam_member - character belonging to this tree that will be partnered
+        '''
         mate.setTreeID(self._id)
         self.tree.addMate(mate, r_id, self.tree.getNode(fam_member))
         if fam_member == self.tree.root.getData() and self._first_gen[1] is None:
@@ -150,27 +212,62 @@ class Family(qtw.QGraphicsObject):
         else:
             self.partners.add(mate)
 
-    def addChildRelationship(self, child, parent):
-        self.tree.addNode(child, self.tree.getNode(parent))
-        # self.members.add(child)
-        # child.setTreeID(self._id)
-        # child.setParent(self)
-        # child.setParentItem(self)
-        # self._size += 1
+    def removeMate(self, fam_member, mate):
+        ''' Attempts to remove a partnership between two characters. 
+
+        Args:
+            fam_member - character in this tree involved in the partnership
+            mate - other character in the partnership
+        '''
+        if self.tree.removeMate(fam_member, mate):
+            return True
+        return False
+    
+    def removePartnership(self, member_id, partner_id):
+        ''' Given two character's ids remove their partnership
+
+        Args:
+            member_id - uuid of the character in this family
+            partner_id - uuid of the partner
+        '''
+        if self._first_gen[0] == member_id or self._first_gen[1] == member_id:
+            return self.splitFirstGen(member_id, partner_id)
+        member = self.members.search(member_id)
+        partner = self.partners.search(partner_id)
+        if member and partner:
+            member = member[0]
+            partner = partner[0]
+            self.scene().removeItem(partner)
+            if self.removeMate(member, partner):
+                print(f'Removed partnership {partner}')
+                self.partners.remove(partner)
+                if partner == self._first_gen[1]:
+                    self._first_gen[1] = None
+                partner.setParent(None)
+                del partner
+            else:
+                return False
+        return True
     
     def removeChild(self, child):
+        ''' Method to remove a child from the tree. Attempts to access the 
+        tree data structure and delete this child node
+
+        Args:
+            child - character object to be deleted
+        '''
         if self.tree.removeNode(child):
             self._size -= 1
             return True
         return False
 
-    def removeMate(self, fam_member, mate):
-        if self.tree.removeMate(fam_member, mate):
-            return True
-        return False
-    
     def delete_character(self, char_id):
+        ''' Attempts to delete a character including instances in relationships.
+        Handles edge cases of being head of family and any partner position.
 
+        Args:
+            char_id - uuid of the character to be deleted
+        '''
         char_removal = True
         partner_removal = False
         
@@ -248,27 +345,15 @@ class Family(qtw.QGraphicsObject):
         
         return char_removal, partner_removal
     
-    def removePartnership(self, member_id, partner_id):
-        if self._first_gen[0] == member_id or self._first_gen[1] == member_id:
-            return self.splitFirstGen(member_id, partner_id)
-        member = self.members.search(member_id)
-        partner = self.partners.search(partner_id)
-        if member and partner:
-            member = member[0]
-            partner = partner[0]
-            self.scene().removeItem(partner)
-            if self.removeMate(member, partner):
-                print(f'Removed partnership {partner}')
-                self.partners.remove(partner)
-                if partner == self._first_gen[1]:
-                    self._first_gen[1] = None
-                partner.setParent(None)
-                del partner
-            else:
-                return False
-        return True
-    
     def splitFirstGen(self, remaining_char, removed_char):
+        ''' Attempts to separate the heads of this family and delete the
+        character that is being removed from the tree. Swaps the positions of
+        the two characters if necessary to ensure there is still a head of family
+
+        Args:
+            remaining_char - first generation character that is to be kept
+            removed_char - other first generation character that is to be deleted
+        '''
         if remaining_char != self._first_gen[0]:
             self._first_gen[0], self._first_gen[1] = self._first_gen[1], self._first_gen[0]
             old_root = self.members.search(removed_char)[0]
@@ -377,6 +462,12 @@ class Family(qtw.QGraphicsObject):
             self.name_graphic.installSceneEventFilter(self)
     
     def includeFirstGen(self, state):
+        ''' Utility function to display the first generation partners if 
+        applicable.
+
+        Args:
+            state - boolean value indicating the display of the heads of family
+        '''
         self._display_root_partner = state
         if not self._display_root_partner and self.scene() and self._first_gen[1]:
                 self.scene().removeItem(self._first_gen[1])
@@ -389,6 +480,11 @@ class Family(qtw.QGraphicsObject):
                 self._first_gen[1].installSceneEventFilter(self)
     
     def explodeFamily(self, state):
+        ''' Explodes the family be displaying all partners in this tree
+
+        Args:
+            state - boolean value indicating the display of all partners
+        '''
         self._explode = state
         if not self._explode and self.scene():
             for char in self.partners:
@@ -401,11 +497,21 @@ class Family(qtw.QGraphicsObject):
                 char.setParentItem(self)
 
     def installFilters(self):
+        ''' Simple function to add scene filters to the primary head of family
+        enabling the tree to be moved by grabbing their graphics
+        '''
         self._first_gen[0].installSceneEventFilter(self)
         self.setNameDisplay(self._name_display)
         
 
     def sceneEventFilter(self, source, event):
+        ''' Creation of a sceneEventFilter to be installed to the head of
+        family resulting in changing mouse images and moving the entire tree
+
+        Args:
+            source - the source of the captured event
+            event - the specific event that was captured
+        '''
         if event.type() == qtc.QEvent.GraphicsSceneHoverEnter:
             source.setCursor(qtc.Qt.OpenHandCursor)
             return False
@@ -434,6 +540,11 @@ class Family(qtw.QGraphicsObject):
 
     # Workhorse function to create graph struct from tree
     def set_grid(self):
+        ''' Behemoth function to create a graph structure from the tree. Calculates
+        positioning of each node as well as the lines used to connect the characters.
+
+        TODO: Simplify simplify simplify
+        '''
         self.graph.clear()
         q = [] 
         fork_counter = 0
@@ -740,40 +851,30 @@ class Family(qtw.QGraphicsObject):
 
 
     def calcXSpacer(self, height, num_kids): 
+        ''' Helper method to calculate the horizontal distance between nodes
+        based on the current height of the tree and the number of kids under that node.
+
+        Args: 
+            height - level in the tree
+            num_kids - the number of characters for a given node
+        '''
         return int((self.FIXED_X) / (height * num_kids) * self.EXPAND_CONSTANT)
 
     def calcXOffset(self, height, num_sibs):
-        # return int((8 * descendants + 4 * num_sibs) / np.square(height)) * self.OFFSET_CONSTANT
+        ''' Helper method to calculate the horizontal offset for each node to 
+        account for less room further down the tree.
+
+        Args: 
+            height - level in the tree
+            num_sibs - the number of siblings a given node has
+        '''
         return int(((num_sibs)) * self.OFFSET_CONSTANT) + (self.FIXED_X / height * (num_sibs))
 
-    # def applyOffsets(self, node, parent_offset):
-    #     if node is None:
-    #         return
-    #     num_kids = len(node.getChildren())
-    #     # middle_child = False
-        
-    #     # if num_kids > 1 and num_kids % 2 != 0:
-    #     #     middle_child = True
-    #     midline = num_kids // 2
-    #     ratio_mult = - ((0.5) * (num_kids - 1))
-    #     for index, child in enumerate(node.getChildren()):
-    #         # if middle_child and index == midline:
-    #         #         #print(f"I'm the middle child!: {child} with parent offset: {parent_offset}")
-    #         #         child.getData().addXOffset(parent_offset)
-    #         #         self.applyOffsets(child, parent_offset)
-    #         #         continue
-    #         descs = child.getNumDescendants()
-    #         # offset = (self.calcXOffset(descs, child.getHeight(), num_kids) * ratio_mult) + parent_offset
-    #         # if index < midline:
-    #         #     offset *= -1
-    #         for partner in child.getMates():
-    #             partner.getData().addXOffset(offset)
-    #         child.getData().addXOffset(offset)
-    #         #print(f'I"m: {child} and I have {descs} descendants and am applying this offset: {offset}')
-    #         ratio_mult += 1
-    #         self.applyOffsets(child, offset)
     
     def offset_grid(self):
+        ''' Corrects the graph so that everything is square and spacing
+        looks astetically pleasing
+        '''
         mid_points = set()
         root_node = self.tree.getRoot()
         if root_node.getPartnerships():
@@ -799,8 +900,13 @@ class Family(qtw.QGraphicsObject):
 
 
     # WARNING: ONLY CALCS FIRST PARTNERSHIP
-    def calcPartnerMidpoint(self, mid):
-        chars = [x for x in mid.get_connections() if x.is_valid()]
+    def calcPartnerMidpoint(self, vertex):
+        ''' Calculates the graphical mid point between a provided vertex
+
+        Args:
+            vertex - the character with a partner
+        '''
+        chars = [x for x in vertex.get_connections() if x.is_valid()]
         char1 = chars[0].get_data()
         char2 = chars[1].get_data()
 
@@ -810,6 +916,10 @@ class Family(qtw.QGraphicsObject):
 
 
     def build_tree(self):
+        ''' Using the current graph of this tree, graphically build the structure.
+        Draws the custom shape of this tree using the character's bounding
+        boxes and adds the connecting lines.
+        '''
         self.prepareGeometryChange()
 
         # NOTE: Only place where pos is used to retrieve Vertex
@@ -871,16 +981,27 @@ class Family(qtw.QGraphicsObject):
             
 
     def reset_family(self):
+        ''' Clears all connecting lines.
+        '''
         self.current_lines[:] = []
     
-
     def boundingRect(self):
+        ''' Build a custom bounding rect based on this tree's children.
+        '''
         rect = self.childrenBoundingRect()
         if self._size == 1:
             rect = rect.adjusted(0, 0, 0, 20)
         return rect
     
     def paint(self, painter, option, widget):
+        ''' Custom paint method to draw all currently visible characters and 
+        their connecting lines. Also draws the family name if the flag is set.
+
+        Args:
+            painter - system's painter object
+            option - any options that apply to the painter
+            widget - the widget to be painted
+        '''
         painter.setRenderHint(qtg.QPainter.Antialiasing)
         painter.setPen(self.linePen)
         for line in self.current_lines:

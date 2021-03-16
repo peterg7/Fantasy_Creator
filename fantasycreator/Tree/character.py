@@ -1,3 +1,21 @@
+''' Responsible for the storage and manipulation of characters.
+
+The character object is a fundamental piece of the program. It stores
+all character traits including graphical aspects such as character images
+and character crowns. Also responsible for translating between a graphical
+object and dictionary representations of characters.
+
+Copyright (c) 2020 Peter C Gish
+
+See the MIT License (MIT) for more information. You should have received a copy
+of the MIT License along with this program. If not, see 
+<https://www.mit.edu/~amini/LICENSE.md>.
+'''
+__author__ = "Peter C Gish"
+__date__ = "3/15/21"
+__maintainer__ = "Peter C Gish"
+__version__ = "1.0.1"
+
 
 # PyQt
 from PyQt5 import QtWidgets as qtw
@@ -17,9 +35,14 @@ from Mechanics.storyTime import Time, DateLineEdit
 from resources import resources
 
 
-# Create Character class
 class Character(qtw.QGraphicsWidget):
+    ''' Graphical widget that represents a character in the program. Able to
+    handle graphical display of each character as well as convert between a 
+    character object and dictionary representation (what is stored in the
+    database and saved files).
+    '''
 
+    # Global class variables
     ICON_HEIGHT = 180
     ICON_WIDTH = 180
 
@@ -27,27 +50,60 @@ class Character(qtw.QGraphicsWidget):
     RULER_PIC_PATH = ':/dflt-tree-images/crown.png'
     BUTTON_WIDTH = 35
 
+    # Custom signals
     item_moved = qtc.pyqtSignal(qtc.QPointF)
 
     def __init__(self, char_dict=None, char_id=None, x_pos=0, y_pos=0, parent=None):
+        ''' Constructor. Flexible initialization for a character object that
+        stores attributes and creates graphical objects for user interaction 
+        and display ie. crown overlay and control buttons
+
+        Args:
+            char_dict - dictionary representation of this character
+            char_id - the uuid of this character
+            x_pos - optional initial graphical x position
+            y_pos - optional initial graphical y position
+            parent - parent widget of this object
+        '''
         super(Character, self).__init__(parent)
-        self.setX(x_pos)
-        self.setY(y_pos)
         self.setFlags(qtw.QGraphicsItem.ItemIsFocusable | 
                         qtw.QGraphicsItem.ItemIsSelectable | 
                         qtw.QGraphicsItem.ItemClipsToShape)
-        # self.setFlag(qtw.QGraphicsItem.ItemSendsGeometryChanges)
-        # self.setFlag(qtw.QGraphicsItem.ItemIsMovable)
         self.setCacheMode(qtw.QGraphicsItem.ItemCoordinateCache)
         self.setAcceptHoverEvents(True)
         self.setCursor(qtc.Qt.PointingHandCursor)
         self.setZValue(2)
 
+        # Character properties - member variables
+        self.uniq_id = char_id    
+        self.tree_id = None
+        self.name = ''
+        self.parent_0 = None
+        self.parent_1 = None
+        self.tree_pos = None
+        self.ruler = False
+        self.picture_loc = ''
+
+        self.ruler_display_flag = True
+        self.current_display_mode = TREE_ICON_DISPLAY.IMAGE
+
+        self.pixmap = None
+        self.img = None
+        self.img_ruler_pixmap = None
+        self.name_ruler_pixmap = None
+        self.offset = (0, 0)
+
+        # Setup graphics
+        self.setX(x_pos)
+        self.setY(y_pos)
+        self.display_font = qtg.QFont('Cochin')
+        self.display_font.setPointSize(40)
+        self.display_font.setWeight(qtg.QFont.DemiBold)
+
         self.add_desc = qtw.QPushButton(
             '+',
             clicked=lambda: self.parent().add_descendant.emit(self.uniq_id)
         )
-        # self.add_btn.setFixedSize(self.BUTTON_WIDTH, self.BUTTON_HEIGHT)
         self.add_desc.setStyleSheet("""
                         QPushButton { 
                             border-width: 3px;
@@ -67,7 +123,6 @@ class Character(qtw.QGraphicsWidget):
             '-',
             clicked=lambda: self.parent().remove_character.emit(self.uniq_id)
         )
-        # self.del_btn.setFixedSize(self.BUTTON_WIDTH, self.BUTTON_HEIGHT)
         self.del_desc.setStyleSheet("""
                         QPushButton { 
                             border-width: 3px;
@@ -87,7 +142,6 @@ class Character(qtw.QGraphicsWidget):
             '+',
             clicked=lambda: self.parent().add_partner.emit(self.uniq_id)
         )
-        # self.partner_btn.setFixedSize(self.BUTTON_HEIGHT, self.BUTTON_WIDTH)
         self.add_partner.setStyleSheet("""
                         QPushButton { 
                             border-width: 3px;
@@ -107,7 +161,6 @@ class Character(qtw.QGraphicsWidget):
             '-',
             clicked=lambda: self.parent().remove_partnership[uuid.UUID].emit(self.uniq_id)
         )
-        # self.partner_btn.setFixedSize(self.BUTTON_HEIGHT, self.BUTTON_WIDTH)
         self.del_partner.setStyleSheet("""
                         QPushButton { 
                             border-width: 3px;
@@ -143,47 +196,22 @@ class Character(qtw.QGraphicsWidget):
         self.del_partner_btn.setToolTip("Remove Partner")
         self.del_partner_btn.setVisible(False)
 
-        # Character properties
-        self.uniq_id = char_id 
-        # self.clone_num = 0       
-        self.tree_id = None
-        self.name = ''
-        self.parent_0 = None
-        self.parent_1 = None
-        self.tree_pos = None
-        self.ruler = False
-        self.picture_loc = ''
-
-        self.display_font = qtg.QFont('Cochin')
-        self.display_font.setPointSize(40)
-        self.display_font.setWeight(qtg.QFont.DemiBold)
-
-        self.ruler_display_flag = True
-        self.current_display_mode = TREE_ICON_DISPLAY.IMAGE
-
-        # self.pixmap = qtw.QGraphicsPixmapItem()
-        self.pixmap = None
-        self.img = None
-        self.img_ruler_pixmap = None
-        self.name_ruler_pixmap = None
-        self.offset = (0, 0)
-
         if char_dict is not None:
             self.parseDict(char_dict)
+
     
     ## Auxiliary Methods ##
 
-    # def removeSelf(self):
-    #     self.parent().delete_character(self.uniq_id)
-    #     self.parent().removed_character.emit(char_id)
-
     def parseDict(self, dictionary):
+        ''' Converter method to read in a dictionary representation of a 
+        character and store the information within this object.
+
+        Args:
+            dictionary - dictionary representation of a character
+        '''
         self.uniq_id = dictionary.get('char_id', self.uniq_id)
         if not self.uniq_id:
             self.uniq_id = uuid.uuid4()
-        # self.clone_num = dictionary.get('clone', self.clone_num)
-        # self.clone_num += 1
-        # self.romance_id = dictionary.get('romance_id', self.romance_id)
         self.tree_id = dictionary.get('tree_id', self.tree_id)
         self.name = dictionary.get('name', self.name)
         ruler_input = dictionary.get('ruler', self.ruler)
@@ -201,10 +229,6 @@ class Character(qtw.QGraphicsWidget):
             self.updatePixmapImage()
             self.img = img
 
-        # else:
-        #     picture_loc_input = dictionary.get('picture_path', self.picture_loc)
-        #     if picture_loc_input != self.picture_loc:
-        #         self.updatePixmapImage(picture_loc_input)
         if self.ruler != ruler_input:
             self.ruler = ruler_input
             if self.ruler_display_flag:
@@ -213,6 +237,9 @@ class Character(qtw.QGraphicsWidget):
         self.updateButtons()
 
     def toDict(self):
+        ''' Export function of this character into a dictionary. Returns the
+        dictionary result
+        '''
         char_dict = {}
         char_dict['char_id'] = self.uniq_id
         char_dict['tree_id'] = self.tree_id
@@ -225,14 +252,23 @@ class Character(qtw.QGraphicsWidget):
         return char_dict
     
     def clone(self):
+        ''' Creates a clone of this character object by instantiating a new
+        character with this characters dictionary
+        '''
         char = Character()
         char.parseDict(self.toDict())
         return char
 
     def setDisplayMode(self, display_mode):
+        ''' Control method for this character's display. Can either be the
+        character's image or their name.
+
+        Args:
+            display_mode - flag indicating the display mode
+        '''
         if display_mode == TREE_ICON_DISPLAY.IMAGE:
             self.current_display_mode = TREE_ICON_DISPLAY.IMAGE
-            self.updatePixmapImage(self.picture_loc)
+            self.updatePixmapImage()
 
         elif display_mode == TREE_ICON_DISPLAY.NAME:
             self.current_display_mode = TREE_ICON_DISPLAY.NAME
@@ -243,12 +279,13 @@ class Character(qtw.QGraphicsWidget):
         self.updateButtons()
     
     def setNameDisplay(self):
-        # size = qtc.QSize(self.pixmap.pixmap().width(), self.pixmap.pixmap().height())
+        ''' Builds the display mode of using the character's name as their
+        depiction. 
+        '''
         font_metric = qtg.QFontMetrics(self.display_font)
         text_width = font_metric.horizontalAdvance(self.name)
 
         size = qtc.QSize(text_width, self.ICON_HEIGHT/2)
-
 
         result_px = qtg.QPixmap(size)
         result_px.fill(qtc.Qt.transparent)
@@ -265,6 +302,8 @@ class Character(qtw.QGraphicsWidget):
     
 
     def buildNameRulerPix(self):
+        ''' Builds the image of a ruler character while in name display mode.
+        '''
         img = qtg.QImage(self.RULER_PIC_PATH)
         img.convertTo(qtg.QImage.Format_ARGB32_Premultiplied)
         crown_px = qtg.QPixmap.fromImage(img)
@@ -285,6 +324,8 @@ class Character(qtw.QGraphicsWidget):
         self.name_ruler_pixmap = result_px
 
     def buildImgRulerPix(self):
+        ''' Builds the image of a ruler character while in image display mode.
+        '''
         img = qtg.QImage(self.RULER_PIC_PATH)
         img.convertTo(qtg.QImage.Format_ARGB32_Premultiplied)
         crown_px = qtg.QPixmap.fromImage(img)
@@ -305,6 +346,12 @@ class Character(qtw.QGraphicsWidget):
         self.img_ruler_pixmap = result_px
 
     def showRuler(self, ruler_state):
+        ''' Control method for the illustration of crowns overhead rulers.
+        Utilizes buildNameRulerPix and buildImgRulerPix.
+
+        Args:
+            ruler_state - flag indicating the display mode
+        '''
         if ruler_state:
             if self.current_display_mode == TREE_ICON_DISPLAY.IMAGE:
                 if not self.img_ruler_pixmap:
@@ -327,6 +374,11 @@ class Character(qtw.QGraphicsWidget):
             self.setNameDisplay()
     
     def setRulerDisplay(self, flag):
+        ''' Handler to receive external input and decide how to call showRuler
+
+        Args: 
+            flag - control parameter to dictate the showing of crowns
+        '''
         self.ruler_display_flag = flag
         if self.ruler_display_flag:
             self.showRuler(self.ruler)
@@ -335,12 +387,19 @@ class Character(qtw.QGraphicsWidget):
             self.showRuler(False)
         self.updateButtons()
     
-    def updatePixmapImage(self, pix=None):
+    def updatePixmapImage(self):
+        ''' Reset the modified pixmap of this object and adjust the display
+        offset.
+        '''
         self.current_pixmap = self.pixmap
         self.offset = (-self.current_pixmap.width() / 2, -self.current_pixmap.height() / 2)
         
         
     def updateButtons(self):
+        ''' Calculates the size and position of each of the four buttons surround
+        the characters. Maintains constant "girth" but stretches/shrinks to fit
+        the character and their display mode.
+        '''
         pix_height = self.current_pixmap.height()
         pix_width = self.current_pixmap.width()
 

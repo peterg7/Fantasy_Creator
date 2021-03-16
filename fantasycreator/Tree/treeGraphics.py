@@ -1,8 +1,8 @@
 ''' Controls the tree graphics. Handles user input & display of the tree
 
-Module for graphics of the tree tab. Controls all aspects of the tree including
-adding/removing characters, creating relationships, creating families, etc. All
-data is synced with the database and therefore all other tabs. 
+Module for graphics of the tree tab. Controls graphical aspects of the tree including
+adding/removing characters to the scene, adding/removing families, requesting
+user input, etc. 
 
 Copyright (c) 2020 Peter C Gish
 
@@ -51,14 +51,18 @@ from resources import resources
 
 
 class TreeView(qtw.QGraphicsView):
-
+    ''' Object that provides the viewport of the tree tab. Holds the scene
+    object and enables interaction between graphical and non-graphical objects.
+    Handles all mouse/keyboard events and any necessary dialog windows.
+    '''
     # Custom signals
     addNewChar = qtc.pyqtSignal(dict, int, uuid.UUID)
     charSelection = qtc.pyqtSignal(uuid.UUID, object)
     tempStatusbarMsg = qtc.pyqtSignal(str, int)
-    sceneClicked = qtc.pyqtSignal(qtc.QPoint)
-    newFamInfo = qtc.pyqtSignal()
-
+    sceneClicked = qtc.pyqtSignal(qtc.QPointF)
+    newFamInfo = qtc.pyqtSignal([list, str, uuid.UUID, qtc.QPointF], 
+                                [list, str, int, qtc.QPointF], 
+                                [list, str, int, qtc.QPointF])
     charEdited = qtc.pyqtSignal(dict)
 
     zoomChanged = qtc.pyqtSignal(int)
@@ -74,8 +78,7 @@ class TreeView(qtw.QGraphicsView):
 
 
     def __init__(self, parent=None, size=None):
-        '''
-        Constructor - initialize TreeScene, set window settings, and establish 
+        ''' Constructor - initialize TreeScene, set window settings, and establish 
         global constants
 
         Args:
@@ -118,8 +121,7 @@ class TreeView(qtw.QGraphicsView):
     ##----------------------- Initializaiton Methods ------------------------##
 
     def connectDB(self, database):
-        '''
-        Connects to the global database and establishes necessary tables
+        ''' Connects to the global database and establishes necessary tables
 
         Args:
             database - instance of global database
@@ -134,33 +136,156 @@ class TreeView(qtw.QGraphicsView):
 
     @qtc.pyqtSlot(Family)
     def addFamily(self, new_fam):
+        ''' Simple slot to insert the passed in family to the scene
+
+        Args:
+            new_fam - new family object to add to the scene
+        '''
         self.scene.addFamToScene(new_fam)
     
     @qtc.pyqtSlot(Family)
     def delFamily(self, target_fam):
+        ''' Slot to remove a specific family from the scene
+
+        Args:
+            target_fam - desired family to be removed from the scene (not deleted)
+        '''
         self.scene.removeFamFromScene(target_fam)
 
-    # @qtc.pyqtSlot(Character)
-    # def addCharacter(self, new_char):
-    
     @qtc.pyqtSlot(Character)
     def delCharacter(self, target_char):
+        ''' Slot to remove a specific character from the scene
+
+        Args:
+            target_char - character to be removed from the scene (not deleted)
+        '''
         self.scene.removeItem(target_char)
 
     @qtc.pyqtSlot()
+    @qtc.pyqtSlot(int, uuid.UUID)
+    def createCharacter(self, char_type=None, parent=None):
+        ''' Initial method for building a character. Launches a CharacterCreator
+        popup for the user to enter information. Passes the input to the 
+        addNewCharacter method
+
+        Args:
+            char_type - the type of character beeing build (Normal/Partner)
+            parent - the optional parent of this new character
+        '''
+        # print(f'Creator called with {char_type}, {parent}')
+        if not char_type:
+            char_type = CharacterTypeSelect.requestType()
+        if not char_type:
+            return
+        self.new_char_dialog = CharacterCreator(self)
+        self.new_char_dialog.submitted.connect(lambda d: self.addNewChar.emit(d, char_type, parent))
+        self.new_char_dialog.show()
+
+
     def gatherFamName(self, first_gen=None, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):
+        ''' Method to prompt the user for a family name. Distributes the entered name
+        to tree.py or internally depending on argument types
+
+        Args:
+            first_get - a list of dictionary representation of characters
+            fam_id - uuid of this family
+            fam_type - flag indicating the type of family this will be
+            root_pt - graphical point indicating the initial location of this family
+        '''
         name, ok = UserLineInput.requestInput("New Family", "Enter a family name:", self)
         if not ok:
-            return
+            return False
         if not first_gen:
-            self.newFamInfo.emit(name)
+            return name
+        elif root_pt:
+            self.newFamInfo[list, str, int, qtc.QPointF].emit(first_gen, name, fam_type, root_pt)
+            return
+        
+        root_pt = self.mapToScene(self.viewport().rect().center())
+        if not fam_type:
+            self.newFamInfo[list, str, uuid.UUID, qtc.QPointF].emit(first_gen, name, fam_id, root_pt)
         else:
-            self.newFamInfo.emit(first_gen, name, fam_id, fam_type, root_pt)
+            self.newFamInfo[list, str, int, qtc.QPointF].emit(first_gen, name, fam_type, root_pt)
+                
+
+    @qtc.pyqtSlot(list, uuid.UUID)
+    def familyCreatorFamID(self, first_gen, fam_id):
+        ''' Simple handler method to pass on information to gatherFamName 
+
+        Args:
+            first_gen - list of dictionaries representing the first generation of this family
+            fam_id - uuid assigned to this family
+        '''
+        self.gatherFamName(first_gen=first_gen, fam_id=fam_id)
+
+    @qtc.pyqtSlot(list, int)
+    def familyCreatorFamType(self, first_gen, fam_type):
+        ''' Slot to receive information from tree.py and pass it on to gatherFamName
+
+        Args:
+            first_gen - list of dictionaries representing the first generation of this family
+            fam_type - flag indicating the type of family 
+        '''
+        self.gatherFamName(first_gen=first_gen, fam_type=fam_type)
+    
+    @qtc.pyqtSlot(list, int, qtc.QPointF)
+    def familyCreatorRootPt(self, first_gen, fam_type, root_pt):
+        ''' Slot to redirect information from tree.py to gatherFamName
+
+        Args:
+            first_get - a list of dictionary representation of characters
+            fam_type - flag indicating the type of family
+            root_pt - graphical point indicating the initial location of this family
+        '''
+        self.gatherFamName(first_gen=first_gen, fam_type=fam_type, root_pt=root_pt)
+
+
+    @qtc.pyqtSlot()
+    @qtc.pyqtSlot(str)
+    def createFamily(self, fam_name=None):
+        ''' Slot that is called to build a new family object. Requests name of the
+        new family and passes information to addNewFamily()
+
+        Args:
+            parent - optional parent used as the head of the family
+        '''
+        if not fam_name:
+            fam_name = self.gatherFamName()
+            if not fam_name:
+                return
+            # CharacterCreator.FAMILY_ITEMS.append(name)
+            self.new_char_dialog = CharacterCreator(self)
+            if fam_name not in CharacterCreator.FAMILY_ITEMS:
+                CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
+            self.new_char_dialog.family_select.setCurrentText(fam_name)
+            self.new_char_dialog.family_select.setDisabled(True)
+            root_pt = self.mapToScene(self.viewport().rect().center())
+            self.new_char_dialog.submitted.connect(lambda d: self.newFamInfo[list, str, int, qtc.QPointF].emit([d], fam_name, flags.FAM_TYPE.ENDPOINT, root_pt))
+            self.new_char_dialog.show()
+        else:
+            return
+
+    @qtc.pyqtSlot()
+    def characterSelected(self):
+        ''' Slot to determine if a character has been selected in the graphics port.
+        Called everytime there is a mouse click
+        '''
+        if self.selecting_char:
+            return
+
+        if self.last_mouse == 'Single' and len(self.scene.selectedItems()) > 0: # at least one character selected
+                selected_item = self.scene.selectedItems()[0] # NOTE: only using "first" item
+                if isinstance(selected_item, Character):
+                    self.addCharacterView(selected_item.getID())
+
+        elif self.last_mouse == 'Double' and len(self.scene.selectedItems()) > 0: # at least one character selected
+                selected_item = self.scene.selectedItems()[0] # NOTE: only using "first" item
+                if isinstance(selected_item, Character):
+                    self.addCharacterEdit(selected_item.getID())
 
     # @qtc.pyqtSlot(dict, qtc.QPointF)
     def inspectSelection(self, point, original_id=None):
-        '''
-        Determines if the passed in point is contained within a character's
+        ''' Determines if the passed in point is contained within a character's
         bounding box
         '''
         self.toggleSelecting()
@@ -173,8 +298,7 @@ class TreeView(qtw.QGraphicsView):
 
     @qtc.pyqtSlot(uuid.UUID)
     def requestCharacter(self, original_id): 
-        '''
-        Method used when the user must select a character. Waits 
+        ''' Method used when the user must select a character. Waits 
         `char_selection_time` for user to make a selection
         '''
         msg_prompt = "Please select a partner"
@@ -197,32 +321,11 @@ class TreeView(qtw.QGraphicsView):
         loop.exec()
 
 
-    @qtc.pyqtSlot()
-    def characterSelected(self):
-        '''
-        Slot to determine if a character has been selected in the graphics port.
-        Called everytime there is a mouse click
-        '''
-        if self.selecting_char:
-            return
-
-        if self.last_mouse == 'Single' and len(self.scene.selectedItems()) > 0: # at least one character selected
-                selected_item = self.scene.selectedItems()[0] # NOTE: only using "first" item
-                if isinstance(selected_item, Character):
-                    self.addCharacterView(selected_item.getID())
-
-        elif self.last_mouse == 'Double' and len(self.scene.selectedItems()) > 0: # at least one character selected
-                selected_item = self.scene.selectedItems()[0] # NOTE: only using "first" item
-                if isinstance(selected_item, Character):
-                    self.addCharacterEdit(selected_item.getID())
-
-
     ##----------------- Removing characters/relationships ------------------##
 
     @qtc.pyqtSlot()
     def deleteActiveChar(self):
-        '''
-        Slot that is used by the toolbar and keyboard shortcuts to delete
+        ''' Slot that is used by the toolbar and keyboard shortcuts to delete
         the most recently active character
         '''
         if self.scene.selectedItems():
@@ -245,8 +348,7 @@ class TreeView(qtw.QGraphicsView):
     
     @qtc.pyqtSlot()
     def checkCharDeleteBtn(self):
-        '''
-        Slot used by the toolbar to determine if the character delete button
+        ''' Slot used by the toolbar to determine if the character delete button
         should be visible
         '''
         if not self.char_views:
@@ -254,35 +356,12 @@ class TreeView(qtw.QGraphicsView):
             CharacterView.CURRENT_SPAWN = qtc.QPoint(20, 50) # NOTE: Magic Number
         else:
             self.setCharDel.emit(True)
-    
-
-    @qtc.pyqtSlot()
-    @qtc.pyqtSlot(int, uuid.UUID)
-    def createCharacter(self, char_type=None, parent=None):
-        '''
-        Initial method for building a character. Launches a CharacterCreator
-        popup for the user to enter information. Passes the input to the 
-        addNewCharacter method
-
-        Args:
-            char_type - the type of character beeing build (Normal/Partner)
-            parent - the optional parent of this new character
-        '''
-        # print(f'Creator called with {char_type}, {parent}')
-        if not char_type:
-            char_type = CharacterTypeSelect.requestType()
-        if not char_type:
-            return
-        self.new_char_dialog = CharacterCreator(self)
-        self.new_char_dialog.submitted.connect(lambda d: self.addNewChar.emit(d, char_type, parent))
-        self.new_char_dialog.show()
 
 
     @qtc.pyqtSlot(uuid.UUID)
     @qtc.pyqtSlot(Character)
     def addCharacterView(self, char_id):
-        '''
-        Slot called when a character is selected. Creates a view object displaying
+        '''Slot called when a character is selected. Creates a view object displaying
         basic information about the selected character
 
         Args:
@@ -323,8 +402,7 @@ class TreeView(qtw.QGraphicsView):
                 
     @qtc.pyqtSlot(uuid.UUID)
     def addCharacterEdit(self, char_id):
-        '''
-        Slot called when a character is double clicked. Launches a popup window
+        ''' Slot called when a character is double clicked. Launches a popup window
         that allows the user to modify information about the character. Upon
         submission, the information is pased to receiveCharacterUpdate() for
         storage
@@ -359,7 +437,6 @@ class TreeView(qtw.QGraphicsView):
         self.scene.resetScene()
 
 
-
     def toggleSelecting(self):
         self.selecting_char = False
         self.tempStatusbarMsg.emit('', 100) # temporary way to clear message
@@ -377,16 +454,14 @@ class TreeView(qtw.QGraphicsView):
     ##-------------------- Override Built-In Event Slots --------------------##
 
     def resizeEvent(self, event): 
-        '''
-        Override method to capture a resize and adjust the size of the viewport
+        ''' Override method to capture a resize and adjust the size of the viewport
         accordingly
         '''               
         self.fitWithBorder()
         super(TreeView, self).resizeEvent(event)
 
     def fitWithBorder(self):
-        '''
-        Sizes the viewport with a border on all four sides
+        ''' Sizes the viewport with a border on all four sides
         '''
         boundingRect = qtc.QRectF()
         if len(self.scene.current_families):
@@ -417,8 +492,7 @@ class TreeView(qtw.QGraphicsView):
     #     self.zoomEvent(direction, event.pos())
 
     def zoomEvent(self, factor, center_pos=None):
-        '''
-        Performs the necessary calcultions and validation checks to execute
+        ''' Performs the necessary calcultions and validation checks to execute
         a zoom transformation of the viewport
 
         Args:
@@ -464,8 +538,7 @@ class TreeView(qtw.QGraphicsView):
     ## Mouse Events
 
     def mousePressEvent(self, event):
-        '''
-        Capture mouse preses and analyze them. Store the coordinates of the
+        ''' Capture mouse preses and analyze them. Store the coordinates of the
         event in the case of panning
 
         Args: 
@@ -489,8 +562,7 @@ class TreeView(qtw.QGraphicsView):
         super(TreeView, self).mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
-        '''
-        Capture mouse releases and reset stored mouse values. Launch a timer
+        ''' Capture mouse releases and reset stored mouse values. Launch a timer
         for an interval for double clicking
         '''
         self._mousePressed = False
@@ -504,15 +576,13 @@ class TreeView(qtw.QGraphicsView):
         super(TreeView, self).mouseReleaseEvent(event)
     
     def mouseDoubleClickEvent(self, event):
-        '''
-        Store the double click and pass it along to the superclass
+        ''' Store the double click and pass it along to the superclass
         '''
         self.last_mouse = 'Double'
         super(TreeView, self).mouseDoubleClickEvent(event)
 
     def mouseMoveEvent(self, event):
-        '''
-        Store state of mouse and execute panning if applicable
+        ''' Store state of mouse and execute panning if applicable
         '''
         if self._mousePressed:
             self.last_mouse = 'Move'
@@ -530,8 +600,7 @@ class TreeView(qtw.QGraphicsView):
     ## Gestures
 
     def viewportEvent(self, event):
-        '''
-        Capture events that correspond with trackpad controls
+        ''' Capture events that correspond with trackpad controls
         '''
         if event.type() == qtc.QEvent.Gesture:
             return self.gestureEvent(event)
@@ -540,8 +609,7 @@ class TreeView(qtw.QGraphicsView):
         return super(TreeView, self).viewportEvent(event)
 
     def gestureEvent(self, event):
-        '''
-        Capture gesture events for pinch (zoom) and utilize the existing
+        ''' Capture gesture events for pinch (zoom) and utilize the existing
         zoomEvent function to translate the gesture to an action
         '''
         if swipe := event.gesture(qtc.Qt.PinchGesture):
@@ -564,8 +632,7 @@ class TreeView(qtw.QGraphicsView):
     ## Keyboard input
     
     def keyPressEvent(self, event):
-        '''
-        Override keyboard input to the graphics port. Captures the escape
+        ''' Override keyboard input to the graphics port. Captures the escape
         key for closing CharacterViews or clearing selection
 
         Args:
@@ -592,13 +659,13 @@ class TreeView(qtw.QGraphicsView):
         super(TreeView, self).keyPressEvent(event)
     
 
-'''
-Object that handles the graphical visualization of the tree. Qt couples a viewport
-with a scene in order to display and easily manipulate graphical objects. This
-object does very little besides provide an access point for graphical display.
-'''
 class TreeScene(qtw.QGraphicsScene):
-    
+    '''
+    Object that handles the graphical visualization of the tree. Qt couples a viewport
+    with a scene in order to display and easily manipulate graphical objects. This
+    object does very little besides provide an access point for graphical display.
+    '''
+
     LINE_WIDTH = 2.5
     SCENE_WIDTH = 8000
     SCENE_HEIGHT = 8000
@@ -612,8 +679,7 @@ class TreeScene(qtw.QGraphicsScene):
     
 
     def __init__(self, parent=None):
-        '''
-        Constructor for the tree scene. Establishes size, sets background
+        ''' Constructor for the tree scene. Establishes size, sets background
         and instantiates member variables
 
         Args:
@@ -637,8 +703,7 @@ class TreeScene(qtw.QGraphicsScene):
 
     @qtc.pyqtSlot()
     def resetScene(self):
-        '''
-        Restores the scene to how it was when the scene was created
+        ''' Restores the scene to how it was when the scene was created
         '''
         self.clearSelection()
         for fam in self.current_families:
@@ -648,8 +713,7 @@ class TreeScene(qtw.QGraphicsScene):
     ## Auxiliary Methods ##
     
     def addFamToScene(self, fam):
-        '''
-        Adds the provided family to the scene and installs scene filters
+        ''' Adds the provided family to the scene and installs scene filters
         for mouse events
 
         Args:
@@ -662,8 +726,7 @@ class TreeScene(qtw.QGraphicsScene):
             fam.installFilters()
         
     def removeFamFromScene(self, fam):
-        '''
-        Removes the passed in family from the scene
+        ''' Removes the passed in family from the scene
 
         Args:
             fam - family to be removed from the scene

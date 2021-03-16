@@ -1,7 +1,7 @@
 ''' Holds methods to support the TreeGraphics and Character modules
 
 Contains various message box templates used by the TreeGraphics module. 
-Stored in this file simple for organizational purposes
+Stored in this file simply for organizational purposes
 
 Copyright (c) 2020 Peter C Gish
 
@@ -38,10 +38,20 @@ from Mechanics.storyTime import Time, DateLineEdit
 from resources import resources
 
 class PartnerSelect(qtw.QDialog):
+    ''' Simple dialog window asking the user to pick from existing characters
+    or create a new one as a partner. 
+    '''
 
+    # Custom signal
     selection_made = qtc.pyqtSignal(bool)
     
     def __init__(self, parent=None):
+        ''' Constructor. Creates layout, sets fonts, and builds buttons
+        to be used for display and collection of the user's response.
+
+        Args:
+            parent - optional parent widget
+        '''
         super(PartnerSelect, self).__init__(parent)
         layout = qtw.QGridLayout()
         font = qtg.QFont('Didot', 28)
@@ -62,14 +72,24 @@ class PartnerSelect(qtw.QDialog):
         layout.addWidget(self.char_select, 2, 2, 1, 1)
         self.setLayout(layout)
         self.setSizePolicy(qtw.QSizePolicy.Minimum, qtw.QSizePolicy.Preferred)
-        # self.setFixedSize(325, 100)
         self.setWindowTitle('Partner Creation Type')
     
-class ParentSelect(qtw.QDialog):
 
+class ParentSelect(qtw.QDialog):
+    ''' Similar to PartnerSelect, this dialog window requests the type of character
+    to be the parent. Either an existing object or to create a new one.
+    '''
+
+    # Custom signals
     selection_made = qtc.pyqtSignal(bool)
     
     def __init__(self, parent=None):
+        ''' Constructor. Establishes layout, customizes appearance, and builds
+        the input buttons.
+
+        Args:
+            parent - optional parent widget
+        '''
         super(ParentSelect, self).__init__(parent)
         layout = qtw.QGridLayout()
         font = qtg.QFont('Didot', 28)
@@ -95,8 +115,18 @@ class ParentSelect(qtw.QDialog):
     
 
 class CharacterTypeSelect(qtw.QDialog):
+    ''' Dialog window that is launched by the creation of a new Character from
+    the toolbar. Prompts the user for the type of character they wish to create.
+    Possess a static method to allow for non-instantiated execution of this window.
+    '''
 
     def __init__(self, parent=None):
+        ''' Constructor. Intializes the dialog, customizes it's appearance, and
+        builds input buttons.
+
+        Args:
+            parent - optional parent widget
+        '''
         super(CharacterTypeSelect, self).__init__(parent)
         layout = qtw.QGridLayout()
         font = qtg.QFont('Didot', 24)
@@ -124,6 +154,8 @@ class CharacterTypeSelect(qtw.QDialog):
         self.selection = None
     
     def handleSelection(self, char_type):
+        ''' Callback method for user response
+        '''
         self.selection = char_type
         self.done(0)
     
@@ -135,11 +167,23 @@ class CharacterTypeSelect(qtw.QDialog):
 
 
 class CharacterView(qtw.QGraphicsWidget):
+    ''' Popup window that is launched when the user clicks on a character object.
+    The popup is embedded in the main window and thus is not a dialog but a 
+    graphics widget.
+    '''
 
+    # Custom signals and global variables
     closed = qtc.pyqtSignal()
     CURRENT_SPAWN = qtc.QPoint(20, 60)  #NOTE: Magic Number
 
     def __init__(self, char_dict, parent=None):
+        ''' Constructor. Builds the layout, add necessary widgets, and customizes
+        appearance.
+
+        Args:
+            char_dict - the character's information in dictionary form
+            parent - optional parent widget
+        '''
         super(CharacterView, self).__init__(parent)
         self.setAttribute(qtc.Qt.WA_DeleteOnClose)
         self.setFlags(qtw.QGraphicsItem.ItemIsMovable | qtw.QGraphicsItem.ItemIsSelectable)
@@ -193,13 +237,11 @@ class CharacterView(qtw.QGraphicsWidget):
         self.family_label.setAcceptHoverEvents(False)
         layout.addItem(self.family_label)
 
-
         self.sex_label = qtw.QGraphicsProxyWidget(self)
         self.sex_label.setWidget(CharacterViewLabel())
         self.sex_label.widget().setStyleSheet(label_style)
         self.sex_label.setAcceptHoverEvents(False)
         layout.addItem(self.sex_label)
-
 
         self.birth_label = qtw.QGraphicsProxyWidget(self)
         self.birth_label.setWidget(CharacterViewLabel())
@@ -218,7 +260,6 @@ class CharacterView(qtw.QGraphicsWidget):
         self.race_label.widget().setStyleSheet(label_style)
         self.race_label.setAcceptHoverEvents(False)
         layout.addItem(self.race_label)
-
 
         self.kingdom_label = qtw.QGraphicsProxyWidget(self)
         self.kingdom_label.setWidget(CharacterViewLabel())
@@ -255,6 +296,9 @@ class CharacterView(qtw.QGraphicsWidget):
         return self._id
     
     def updateView(self):
+        ''' Accesses the stored character dictionary and reflects the stored
+        information onto the view.
+        '''
         if self._char['name']:
             label_string = self._char['name']
         else:
@@ -274,14 +318,12 @@ class CharacterView(qtw.QGraphicsWidget):
         self.sex_label.widget().setText(label_string)
         
         if self._char['birth']:
-            # label_string = f"<b>Birth</b>: {'{0} • {1} • {2}'.format(*self._char['birth'])}"
             label_string = f"<b>Birth</b>: {str(self._char['birth'])}"
         else:
             label_string = 'Birth: ...'
         self.birth_label.widget().setText(label_string)
 
         if self._char['death']:
-            # label_string = f"<b>Death</b>: {'{0} • {1} • {2}'.format(*self._char['death'])}"
             label_string = f"<b>Death</b>: {str(self._char['death'])}"
         else:
             label_string = 'Death: ...'
@@ -301,6 +343,8 @@ class CharacterView(qtw.QGraphicsWidget):
     
 
     def check_selected(self):
+        ''' Simple test method to see if this view is currently selected.
+        '''
         if self.isSelected():
             self.translucent_effect.setEnabled(False)
         else:
@@ -341,7 +385,8 @@ class CharacterView(qtw.QGraphicsWidget):
     
 
 class CharacterViewLabel(qtw.QLabel):
-
+    ''' Custom label widget for appearance purposes
+    '''
     def __init__(self, parent=None):
         super(CharacterViewLabel, self).__init__(parent)
         self.setTextFormat(qtc.Qt.RichText)
@@ -349,13 +394,18 @@ class CharacterViewLabel(qtw.QLabel):
         self.setCursor(qtc.Qt.OpenHandCursor)
     
 
-
-# Character creation form
 class CharacterCreator(qtw.QDialog):
+    ''' Dialog window to gather necessary information from the user regarding
+    character creation. Provides input fields for all stored fields of a 
+    character. Reused for editing a character by initially filled out the form
+    with the existing data.
+    '''
 
+    # Custom signals
     submitted = qtc.pyqtSignal(dict)
     closed = qtc.pyqtSignal()
 
+    # Global class variables
     DFLT_PROFILE_PATH = ':/dflt-tree-images/default_profile.png'
     UNKNOWN_MALE_PATH = ':/dflt-tree-images/unknown_male.png'
     UNKNOWN_FEMALE_PATH = ':/dflt-tree-images/unknown_female.png'
@@ -367,12 +417,16 @@ class CharacterCreator(qtw.QDialog):
 
     IMAGES_PATH = 'tmp/' # TODO: FIX THIS
 
-    def __init__(self, parent=None, editingChar=None):
+    def __init__(self, parent=None, editing_char=None):
+        ''' Constructor. Initializes the window and builds all component
+        widgets. Determines if editing or creating. 
+
+        Args:
+            parent - optional parent widget
+            editing_char - dictionary of the character to edit
+        '''
         super(CharacterCreator, self).__init__(parent)
-        # self.setSizePolicy(
-        #     qtw.QSizePolicy.Preferred,
-        #     qtw.QSizePolicy.Preferred
-        # )
+
         self.setAttribute(qtc.Qt.WA_DeleteOnClose)
         self.setModal(True) # CAUSES BUG 
 
@@ -515,8 +569,8 @@ class CharacterCreator(qtw.QDialog):
 
         self.setLayout(layout)
         self.setFont(qtg.QFont('Baskerville', 18))
-        if editingChar:
-            self._char = editingChar
+        if editing_char:
+            self._char = editing_char
             self.setWindowTitle(self._char['name'])
             self.parseExistingChar()
         else:
@@ -524,8 +578,10 @@ class CharacterCreator(qtw.QDialog):
             self.setWindowTitle('Create a new character')
         #self.setVisible(True)
     
-
     def parseExistingChar(self):
+        ''' Use the information stored in the passed in character dictionary to
+        populate this windows labels.
+        '''
         self._id = self._char['char_id']
         self.name.setText(self._char['name'])
         self.family_select.setCurrentText(self._char['family'])
@@ -544,12 +600,15 @@ class CharacterCreator(qtw.QDialog):
         else:
             self.picture.setPixmap(qtg.QPixmap(self._char['picture_path']))
 
-    
     # def closeEvent(self, event):
     #     self.closed.emit()
     #     super(CharacterCreator, self).closeEvent(event)
     @qtc.pyqtSlot()
     def getPic(self):
+        ''' Slot used to begin the picture acquisition process by prompting the
+        user to choose an image stored on their computer. If a filename
+        is captured, pass it on to the PictureEditor for the next step. 
+        '''
         filename, _ = qtw.QFileDialog.getOpenFileName(
             self,
             'Select an image to open...',
@@ -563,13 +622,23 @@ class CharacterCreator(qtw.QDialog):
 
     @qtc.pyqtSlot(str, qtg.QPixmap)
     def store_new_pic(self, filename, pix):
+        ''' Stores a newly selected picture in this object
+
+        Args:
+            filename - string filename of the new picture
+            pix - pixmap storage of the user's image
+        '''
         self.picture_path.setText(filename)
         self.picture.setPixmap(pix)
-
-
     
     @qtc.pyqtSlot(str)
     def on_kingdom_change(self, text):
+        ''' Simple callback to examine user's selection for kingdom. Prompts for
+        a new option if necessary.
+
+        Args: 
+            text - the current text entry that has been selected
+        '''
         if text == 'New...':
             text, ok = qtw.QInputDialog.getText(self, 'Define new kingdom', 'Enter kingdom:')
             if ok:
@@ -581,6 +650,12 @@ class CharacterCreator(qtw.QDialog):
     
     @qtc.pyqtSlot(str)
     def on_fam_change(self, text):
+        ''' Simple callback to examine user's selection for family. Prompts for
+        a new option if necessary.
+
+        Args: 
+            text - the current text entry that has been selected
+        '''
         if text == 'New...':
             text, ok = qtw.QInputDialog.getText(self, 'New Family', 'Enter family name:')
             if ok:
@@ -592,6 +667,12 @@ class CharacterCreator(qtw.QDialog):
 
     @qtc.pyqtSlot(str)
     def on_race_change(self, text):
+        ''' Simple callback to examine user's selection for race. Prompts for
+        a new option if necessary.
+
+        Args: 
+            text - the current text entry that has been selected
+        '''
         if text == 'Other...':
             text, ok = qtw.QInputDialog.getText(self, 'Define other race', 'Enter race:')
             if ok:
@@ -603,6 +684,12 @@ class CharacterCreator(qtw.QDialog):
     
     @qtc.pyqtSlot(str)
     def on_sex_change(self, text):
+        ''' Simple callback to examine user's selection for sex. Prompts for
+        a new option if necessary.
+
+        Args: 
+            text - the current text entry that has been selected
+        '''
         if text == 'Other...':
             text, ok = qtw.QInputDialog.getText(self, 'Define other sex', 'Enter sex:')
             if ok:
@@ -614,13 +701,20 @@ class CharacterCreator(qtw.QDialog):
     
     @qtc.pyqtSlot(int)
     def on_ruler_change(self, ruler):
+        ''' Simple callback to examine state of ruler button. 
+
+        Args: 
+            ruler - the boolean state of the button
+        '''
         if ruler:
             self.ruler_picture.setPixmap(self.RULER_PIC)
         else:
             self.ruler_picture.clear()
 
-
     def onSubmit(self):
+        ''' Callback for the submit button on the dialog. Packages all stored
+        information and return it via the `submit` signal.
+        '''
         self._char['name'] = self.name.text()
         selectedFamily = str(self.family_select.currentText())
         if selectedFamily == 'Select Family':
@@ -665,7 +759,6 @@ class CharacterCreator(qtw.QDialog):
         self.close()
         self.submitted.emit(self._char)
         
-    
     def keyPressEvent(self, event):
         if event.key() == qtc.Qt.Key_Escape:
             self.close()

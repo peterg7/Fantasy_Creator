@@ -21,7 +21,7 @@ class Graph:
 
         def add_neighbor(self, neighbor, weight=0):
             self.adjacent[neighbor] = weight    # Include type of path? (sibling, marriage, ...)
-
+                                                # Different color lines for different relationship types?
         def get_connections(self):
             return self.adjacent.keys()  
 

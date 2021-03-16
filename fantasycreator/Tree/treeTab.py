@@ -20,6 +20,9 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
+# Built-in Modules
+import uuid
+
 # User-defined Modules
 from .treeGraphics import TreeView
 from .tree import Tree
@@ -69,9 +72,11 @@ class TreeTab(qtw.QMainWindow):
         self.treeview.charEdited.connect(self.tree.receiveCharacterUpdate)
         self.treeview.addNewChar.connect(self.tree.addNewCharacter)
         self.tree.requestNewChar.connect(self.treeview.createCharacter)
-        self.tree.requestNewFam.connect(self.treeview.gatherFamName)
-        self.treeview.newFamInfo.connect(self.tree.createFamily)
-        self.treeview.newFamInfo.connect(self.tree.addNewFamily)
+        self.tree.requestFamName[list, uuid.UUID].connect(self.treeview.familyCreatorFamID)
+        self.tree.requestFamName[list, int].connect(self.treeview.familyCreatorFamType)
+        self.tree.requestFamName[list, int, qtc.QPointF].connect(self.treeview.familyCreatorRootPt)
+        self.treeview.newFamInfo[list, str, uuid.UUID, qtc.QPointF].connect(self.tree.handleNewFamID)
+        self.treeview.newFamInfo[list, str, int, qtc.QPointF].connect(self.tree.handleNewFamType)
 
 
         ## Control Panel
@@ -112,7 +117,7 @@ class TreeTab(qtw.QMainWindow):
             qtg.QIcon(':/toolbar-icons/add_family_icon.png'),
             'Add Family'
         )
-        add_char_act.triggered.connect(self.tree.createFamily)
+        add_char_act.triggered.connect(self.treeview.createFamily)
         
         self.add_add_separator = self.toolbar.addSeparator()
 

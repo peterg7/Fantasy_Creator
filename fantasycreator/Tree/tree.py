@@ -73,8 +73,8 @@ class Tree(qtc.QObject):
     charRequest = qtc.pyqtSignal(uuid.UUID)
     addCharEdit = qtc.pyqtSignal(uuid.UUID)
     requestNewChar = qtc.pyqtSignal(int, uuid.UUID)
-    requestNewFam = qtc.pyqtSignal(list, str, uuid.UUID, int, qtc.QPoint)
-    requestFamName = qtc.pyqtSignal()
+    # requestNewFam = qtc.pyqtSignal(list, str, uuid.UUID, int, qtc.QPoint)
+    requestFamName = qtc.pyqtSignal([list, uuid.UUID], [list, int], [list, int, qtc.QPointF])
 
     MasterFamilies = {}
     CharacterList = HashList() # Stores all CHARACTER objects
@@ -449,7 +449,7 @@ class Tree(qtc.QObject):
                 if isinstance(parent, Character):
                     parent_id = parent.getID()
                 elif isinstance(parent, qtc.QPointF):
-                    self.addNewFamily([char_dict], fam_type=flags.FAM_TYPE.NULL_TERM, root_pt=parent)
+                    self.newFamilyWrapper([char_dict], fam_type=flags.FAM_TYPE.NULL_TERM, root_pt=parent)
                     return # Parent selection timeout, empty list returned
                 else:
                     return
@@ -490,7 +490,7 @@ class Tree(qtc.QObject):
                 first_gen = [parent_dict]
                 if other_parent_dict:
                     first_gen.append(other_parent_dict)
-                if not self.addNewFamily(first_gen, fam_id=fam_id):
+                if not self.newFamilyWrapper(first_gen, fam_id=fam_id):
                     return
                 # added_partner = True
                 
@@ -562,7 +562,7 @@ class Tree(qtc.QObject):
                 create_fam_prompt.setFont(prompt_font)
                 response = create_fam_prompt.exec()
                 if response == qtw.QMessageBox.Yes:
-                    self.addNewFamily([formatted_dict, existing_dict], fam_type=flags.FAM_TYPE.NULL_TERM)
+                    self.newFamilyWrapper([formatted_dict, existing_dict], fam_type=flags.FAM_TYPE.NULL_TERM)
                     added_partner = True
                 else:
                     formatted_dict['fam_id'] = self.meta_db.all()[0]['NULL_ID']
@@ -577,7 +577,7 @@ class Tree(qtc.QObject):
                         return
                     formatted_dict['parent_0'] = parent.getID()
                 else:
-                    self.addNewFamily([formatted_dict, existing_dict], fam_name)
+                    self.newFamilyWrapper([formatted_dict, existing_dict], fam_name)
                     added_partner = True
 
             if added_partner:
@@ -651,28 +651,34 @@ class Tree(qtc.QObject):
         # if char_type != CHAR_TYPE.PARTNER:
         self.update_tree()
     
-    @qtc.pyqtSlot()
-    def createFamily(self, fam_name):
-        '''
-        Slot that is called to build a new family object. Requests name of the
-        new family and passes information to addNewFamily()
-
-        Args:
-            parent - optional parent used as the head of the family
-        '''
-        if fam_name:
-            # CharacterCreator.FAMILY_ITEMS.append(name)
-            self.new_char_dialog = CharacterCreator(self)
-            if fam_name not in CharacterCreator.FAMILY_ITEMS:
-                CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
-            self.new_char_dialog.family_select.setCurrentText(fam_name)
-            self.new_char_dialog.family_select.setDisabled(True)
-            self.new_char_dialog.submitted.connect(lambda d: self.addNewFamily([d], fam_name, fam_type=flags.FAM_TYPE.ENDPOINT))
-            self.new_char_dialog.show()
-        else:
-            return
-    
+    # Calling signatures
+    # 1. list(dict), fam_type, root_pt
+    # 2. list(dict), fam_id
+    # 3. list(dict, dict) fam_type
+    # 4. list(dict, dict) fam_name
     def newFamilyWrapper(self, first_gen, fam_name=None, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):    
+        if not fam_name and isinstance(first_gen[0], dict):
+            fam_name = first_gen[0].get('family', None)
+            if not fam_name:
+                if not fam_type:
+                    self.requestFamName[list, uuid.UUID].emit(first_gen, fam_id) # list, uuid.UUID
+                elif not root_pt:
+                    self.requestFamName[list, int].emit(first_gen, fam_type) # list, int
+                else:
+                    self.requestFamName[list, int, qtc.QPointF].emit(first_gen, fam_type, root_pt) # list, int, point
+            return
+        self.addNewFamily(first_gen, fam_name, fam_id, fam_type, root_pt)
+    
+    @qtc.pyqtSlot(list, str, uuid.UUID, qtc.QPointF)
+    def handleNewFamID(self, first_gen, fam_name, fam_id, root_pt):
+        self.addNewFamily(first_gen=first_gen, fam_name=fam_name, fam_id=fam_id, root_pt=root_pt)
+    
+    @qtc.pyqtSlot(list, str, int, qtc.QPointF)
+    def handleNewFamType(self, first_gen, fam_name, fam_type, root_pt):
+        self.addNewFamily(first_gen=first_gen, fam_name=fam_name, fam_type=fam_type, root_pt=root_pt)
+                
+
+    def addNewFamily(self, first_gen, fam_name, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):
         '''
         Workhorse function to build a new family. Collects information on
         family name, generates a family id, and stores the family. Also connects
@@ -688,20 +694,6 @@ class Tree(qtc.QObject):
             root_pt - optional parameter of where, graphically, the root of
                         this family will be
         '''
-        if not fam_name:
-            if isinstance(first_gen[0], dict):
-                fam_name = first_gen[0].get('family', None)
-                if not fam_name:
-                    self.requestFamName.emit(first_gen, fam_name, fam_id, fam_type, root_pt)
-                    return
-        self.addNewFamily(first_gen, fam_name, fam_id, fam_type, root_pt)
-                
-    
-    @qtc.pyqtSlot()
-    def addNewFamily(self, first_gen, fam_name=None, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):
-        # TODO: problem here accessing scene coordinate system
-        # if not root_pt:
-        #     root_pt = self.mapToScene(self.viewport().rect().center())
         fam_entry = self.entry_formatter.family_entry(fam_name, fam_type, fam_id)
         fam_id = fam_entry['fam_id'] 
         family_heads = []
