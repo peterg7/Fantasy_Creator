@@ -26,5 +26,4 @@ peter.gish11@gmail.com | 203-918-3845
 See [Bug Hunter](docs/BugHunter.md) and [TODO](docs/TODO.md)
 
 ## Notes
-This application was developed and has been solely tested on Mac OSx. Behavior
-on other platforms is unpredictable.
+This application was developed and has been solely tested on Mac OSx. Behavior on other platforms is unpredictable.

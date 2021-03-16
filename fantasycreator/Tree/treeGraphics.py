@@ -56,14 +56,8 @@ class TreeView(qtw.QGraphicsView):
     Handles all mouse/keyboard events and any necessary dialog windows.
     '''
     # Custom signals
-    addNewChar = qtc.pyqtSignal(dict, int, uuid.UUID)
-    charSelection = qtc.pyqtSignal(uuid.UUID, object)
     tempStatusbarMsg = qtc.pyqtSignal(str, int)
     sceneClicked = qtc.pyqtSignal(qtc.QPointF)
-    newFamInfo = qtc.pyqtSignal([list, str, uuid.UUID, qtc.QPointF], 
-                                [list, str, int, qtc.QPointF], 
-                                [list, str, int, qtc.QPointF])
-    charEdited = qtc.pyqtSignal(dict)
 
     zoomChanged = qtc.pyqtSignal(int)
     setCharDel = qtc.pyqtSignal(bool)
@@ -88,6 +82,8 @@ class TreeView(qtw.QGraphicsView):
 
         super(TreeView, self).__init__(parent)
         print('Initializing tree...')
+
+        self.tree = Tree(self)
         
         # Setup Scene
         self.scene = TreeScene(self)
@@ -126,11 +122,16 @@ class TreeView(qtw.QGraphicsView):
         Args:
             database - instance of global database
         '''
+        self.tree.connectDB(database)
         # Create tables
         self.character_db = database.table('characters')
         self.families_db = database.table('families')
         self.kingdoms_db = database.table('kingdoms')
 
+
+    def initTree(self):
+        self.tree.initTree()
+        self.tree.initCharCombos()
 
     ##-------------------- Adding/Modifying Characters ---------------------##
 
@@ -178,7 +179,7 @@ class TreeView(qtw.QGraphicsView):
         if not char_type:
             return
         self.new_char_dialog = CharacterCreator(self)
-        self.new_char_dialog.submitted.connect(lambda d: self.addNewChar.emit(d, char_type, parent))
+        self.new_char_dialog.submitted.connect(lambda d: self.tree.addNewCharacter(d, char_type, parent))
         self.new_char_dialog.show()
 
 
@@ -198,47 +199,12 @@ class TreeView(qtw.QGraphicsView):
         if not first_gen:
             return name
         elif root_pt:
-            self.newFamInfo[list, str, int, qtc.QPointF].emit(first_gen, name, fam_type, root_pt)
+            self.tree.addNewFamily(first_gen, name, fam_type, root_pt)
             return
         
         root_pt = self.mapToScene(self.viewport().rect().center())
-        if not fam_type:
-            self.newFamInfo[list, str, uuid.UUID, qtc.QPointF].emit(first_gen, name, fam_id, root_pt)
-        else:
-            self.newFamInfo[list, str, int, qtc.QPointF].emit(first_gen, name, fam_type, root_pt)
+        self.tree.addNewFamily(first_gen, name, fam_id, root_pt)
                 
-
-    @qtc.pyqtSlot(list, uuid.UUID)
-    def familyCreatorFamID(self, first_gen, fam_id):
-        ''' Simple handler method to pass on information to gatherFamName 
-
-        Args:
-            first_gen - list of dictionaries representing the first generation of this family
-            fam_id - uuid assigned to this family
-        '''
-        self.gatherFamName(first_gen=first_gen, fam_id=fam_id)
-
-    @qtc.pyqtSlot(list, int)
-    def familyCreatorFamType(self, first_gen, fam_type):
-        ''' Slot to receive information from tree.py and pass it on to gatherFamName
-
-        Args:
-            first_gen - list of dictionaries representing the first generation of this family
-            fam_type - flag indicating the type of family 
-        '''
-        self.gatherFamName(first_gen=first_gen, fam_type=fam_type)
-    
-    @qtc.pyqtSlot(list, int, qtc.QPointF)
-    def familyCreatorRootPt(self, first_gen, fam_type, root_pt):
-        ''' Slot to redirect information from tree.py to gatherFamName
-
-        Args:
-            first_get - a list of dictionary representation of characters
-            fam_type - flag indicating the type of family
-            root_pt - graphical point indicating the initial location of this family
-        '''
-        self.gatherFamName(first_gen=first_gen, fam_type=fam_type, root_pt=root_pt)
-
 
     @qtc.pyqtSlot()
     @qtc.pyqtSlot(str)
@@ -260,7 +226,7 @@ class TreeView(qtw.QGraphicsView):
             self.new_char_dialog.family_select.setCurrentText(fam_name)
             self.new_char_dialog.family_select.setDisabled(True)
             root_pt = self.mapToScene(self.viewport().rect().center())
-            self.new_char_dialog.submitted.connect(lambda d: self.newFamInfo[list, str, int, qtc.QPointF].emit([d], fam_name, flags.FAM_TYPE.ENDPOINT, root_pt))
+            self.new_char_dialog.submitted.connect(lambda d: self.tree.addNewFamily([d], fam_name, flags.FAM_TYPE.ENDPOINT, root_pt))
             self.new_char_dialog.show()
         else:
             return
@@ -284,7 +250,7 @@ class TreeView(qtw.QGraphicsView):
                     self.addCharacterEdit(selected_item.getID())
 
     # @qtc.pyqtSlot(dict, qtc.QPointF)
-    def inspectSelection(self, point, original_id=None):
+    def inspectSelection(self, point):
         ''' Determines if the passed in point is contained within a character's
         bounding box
         '''
@@ -293,15 +259,12 @@ class TreeView(qtw.QGraphicsView):
             selection = self.itemAt(point)
             if not selection and self.scene.sceneRect().contains(point):
                 selection = self.mapToScene(point)
-            # self.selected_char = selection
-            self.charSelection.emit(original_id, selection)
+            self.selected_char = selection
 
-    @qtc.pyqtSlot(uuid.UUID)
-    def requestCharacter(self, original_id): 
+    def requestCharacter(self, msg_prompt): 
         ''' Method used when the user must select a character. Waits 
         `char_selection_time` for user to make a selection
         '''
-        msg_prompt = "Please select a partner"
         self.selecting_char = True
         self.selected_char = None
         print(msg_prompt)
@@ -315,11 +278,19 @@ class TreeView(qtw.QGraphicsView):
         self.tempStatusbarMsg.emit(f'{msg_prompt}...', self.char_selection_timeout)
         loop = qtc.QEventLoop()
         self.sceneClicked.connect(loop.quit)
-        self.sceneClicked.connect(lambda: self.inspectSelection(original_id))
+        self.sceneClicked.connect(self.inspectSelection)
         timer = qtc.QTimer()
         timer.singleShot(self.char_selection_timeout, loop.quit)
         loop.exec()
 
+    def confirmNewFamily(self):
+        create_fam_prompt = qtw.QMessageBox(qtw.QMessageBox.Question, "Create family?", 
+                    "Would you like to create a family for the new partner?",
+                    qtw.QMessageBox.Yes | qtw.QMessageBox.No, self)
+        prompt_font = qtg.QFont('Didot', 20)
+        create_fam_prompt.setFont(prompt_font)
+        response = create_fam_prompt.exec()
+        return response
 
     ##----------------- Removing characters/relationships ------------------##
 
@@ -422,7 +393,7 @@ class TreeView(qtw.QGraphicsView):
             else:
                 selected_char['kingdom'] = ''
             self.edit_window = CharacterCreator(self, selected_char)
-            self.edit_window.submitted.connect(self.charEdited)
+            self.edit_window.submitted.connect(self.tree.receiveCharacterUpdate)
             # self.edit_window.submitted.connect(lambda d: self.updatedChars.emit([d['char_id']]))
             self.edit_window.show()
 

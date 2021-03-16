@@ -63,19 +63,6 @@ class Tree(qtc.QObject):
     requestFilterChange = qtc.pyqtSignal(int, int)
     hideAddCharacter = qtc.pyqtSignal(bool)
 
-    # Tree view specific
-    sceneUpdate = qtc.pyqtSignal()
-    sceneReset = qtc.pyqtSignal()
-    addFamToScene = qtc.pyqtSignal(Family)
-    delFamFromScene = qtc.pyqtSignal(Family)
-    addCharToScene = qtc.pyqtSignal(Character)
-    delCharFromScene = qtc.pyqtSignal(Character)
-    charRequest = qtc.pyqtSignal(uuid.UUID)
-    addCharEdit = qtc.pyqtSignal(uuid.UUID)
-    requestNewChar = qtc.pyqtSignal(int, uuid.UUID)
-    # requestNewFam = qtc.pyqtSignal(list, str, uuid.UUID, int, qtc.QPoint)
-    requestFamName = qtc.pyqtSignal([list, uuid.UUID], [list, int], [list, int, qtc.QPointF])
-
     MasterFamilies = {}
     CharacterList = HashList() # Stores all CHARACTER objects
     #TODO: FIX THESE -> need a better location 
@@ -119,8 +106,8 @@ class Tree(qtc.QObject):
             self.hideAddCharacter.emit(True)
             for fam_id, family in Tree.MasterFamilies.items():
                 family.setParent(self)
-                family.edit_char.connect(self.addCharEdit)
-                family.add_descendant.connect(lambda x: self.requestNewChar.emit(flags.CHAR_TYPE.DESCENDANT, x))
+                family.edit_char.connect(self.parent().addCharacterEdit)
+                family.add_descendant.connect(lambda x: self.parent().createCharacter(flags.CHAR_TYPE.DESCENDANT, x))
                 family.remove_character.connect(self.removeCharacter)
                 family.add_partner.connect(self.createPartnership)
                 family.remove_partnership.connect(self.divorceProctor)
@@ -130,13 +117,13 @@ class Tree(qtc.QObject):
                 family.set_grid()
                 family.build_tree()
                 # self.scene.addFamToScene(family)
-                self.addFamToScene.emit(family)
+                self.parent().scene.addFamToScene(family)
                 self.families_in_scene.append(family)
                 self.addedChars.emit([char.getID() for char in family.getAllMembers()])
                 Tree.CharacterList.add(*family.getMembersAndPartners())
         
         self.setTreeSpacing()
-        self.sceneUpdate.emit()
+        self.parent().updateView()
     
 
     def initCharCombos(self):
@@ -333,7 +320,7 @@ class Tree(qtc.QObject):
         from the scene
         '''
         # self.scene.resetScene()
-        self.sceneReset.emit()
+        self.parent().scene.resetScene()
         if not Tree.MasterFamilies:
             self.hideAddCharacter.emit(False)
         else:
@@ -349,17 +336,17 @@ class Tree(qtc.QObject):
                         # self.addedChars.emit([char.getID() for char in family.getAllMembers()])
                         family.initFirstGen()
                         # self.scene.addFamToScene(family)
-                        self.addFamToScene.emit(family)
+                        self.parent().scene.addFamToScene(family)
                 else:
                     # if family in self.scene.current_families:
                     if family in self.families_in_scene:
                         # self.removedChars.emit([char.getID() for char in family.getAllMembers()])
                         # self.scene.removeFamFromScene(family) 
-                        self.delFamFromScene.emit(family)
+                        self.parent().scene.removeFamFromScene(family)
                         family.setParent(None)
         # self.scene.update()
         # self.viewport().update()
-        self.sceneUpdate.emit()
+        self.parent().updateView()
 
 
     ##-------------------- Adding/Modifying Characters ---------------------##
@@ -445,7 +432,7 @@ class Tree(qtc.QObject):
                 # parent_char = parent
                 parent_id = parent.getID()
             elif not parent:
-                parent = self.requestCharacter('Please select a parent')
+                parent = self.parent().requestCharacter('Please select a parent')
                 if isinstance(parent, Character):
                     parent_id = parent.getID()
                 elif isinstance(parent, qtc.QPointF):
@@ -531,7 +518,7 @@ class Tree(qtc.QObject):
             elif isinstance(parent, Character):
                 existing_char = parent
             elif not parent:
-                partner = self.requestCharacter('Please select a partner')
+                partner = self.parent().requestCharacter('Please select a partner')
                 if isinstance(partner, Character):
                     existing_char = partner
                 else:
@@ -555,13 +542,8 @@ class Tree(qtc.QObject):
             # NOTE: set family to NULL if not entered in CharacterCreator
             parent = None
             if not fam_name:
-                create_fam_prompt = qtw.QMessageBox(qtw.QMessageBox.Question, "Create family?", 
-                            "Would you like to create a family for the new partner?",
-                            qtw.QMessageBox.Yes | qtw.QMessageBox.No, self)
-                prompt_font = qtg.QFont('Didot', 20)
-                create_fam_prompt.setFont(prompt_font)
-                response = create_fam_prompt.exec()
-                if response == qtw.QMessageBox.Yes:
+                create_new_fam = self.parent().confirmNewFamily()
+                if create_new_fam == qtw.QMessageBox.Yes:
                     self.newFamilyWrapper([formatted_dict, existing_dict], fam_type=flags.FAM_TYPE.NULL_TERM)
                     added_partner = True
                 else:
@@ -571,7 +553,7 @@ class Tree(qtc.QObject):
                 fam_id = self.getFamily(fam_name=fam_name)
                 if fam_id:
                     formatted_dict['fam_id'] = fam_id
-                    parent = self.requestCharacter('Please select a parent')
+                    parent = self.parent().requestCharacter('Please select a parent')
                     if not isinstance(parent, Character):
                         print("No parent selected!")
                         return
@@ -626,20 +608,20 @@ class Tree(qtc.QObject):
         #     print(char, char.getTreeID())
 
         # Apply current flags
+        target_char = Tree.CharacterList.search(formatted_dict['char_id'])
         if flags.FAMILY_FLAGS.DISPLAY_RULERS in self.CURRENT_FAMILY_FLAGS:
-            for char in Tree.CharacterList.search(formatted_dict['char_id']):
+            for char in target_char:
                 char.setRulerDisplay(True)              
         else:
-            for char in Tree.CharacterList.search(formatted_dict['char_id']):
+            for char in target_char:
                 char.setRulerDisplay(False)              
 
-
         if Tree.TREE_DISPLAY == flags.TREE_ICON_DISPLAY.IMAGE:
-            for char in Tree.CharacterList.search(formatted_dict['char_id']):
+            for char in target_char:
                 char.setDisplayMode(flags.TREE_ICON_DISPLAY.IMAGE)              
 
         elif Tree.TREE_DISPLAY == flags.TREE_ICON_DISPLAY.NAME:
-            for char in Tree.CharacterList.search(formatted_dict['char_id']):
+            for char in target_char:
                 char.setDisplayMode(flags.TREE_ICON_DISPLAY.NAME)
         # self.scene.update()
         # self.sceneUpdate.emit()
@@ -660,22 +642,9 @@ class Tree(qtc.QObject):
         if not fam_name and isinstance(first_gen[0], dict):
             fam_name = first_gen[0].get('family', None)
             if not fam_name:
-                if not fam_type:
-                    self.requestFamName[list, uuid.UUID].emit(first_gen, fam_id) # list, uuid.UUID
-                elif not root_pt:
-                    self.requestFamName[list, int].emit(first_gen, fam_type) # list, int
-                else:
-                    self.requestFamName[list, int, qtc.QPointF].emit(first_gen, fam_type, root_pt) # list, int, point
+                self.parent().gatherFamName(first_gen, fam_id, fam_type, root_pt)
             return
         self.addNewFamily(first_gen, fam_name, fam_id, fam_type, root_pt)
-    
-    @qtc.pyqtSlot(list, str, uuid.UUID, qtc.QPointF)
-    def handleNewFamID(self, first_gen, fam_name, fam_id, root_pt):
-        self.addNewFamily(first_gen=first_gen, fam_name=fam_name, fam_id=fam_id, root_pt=root_pt)
-    
-    @qtc.pyqtSlot(list, str, int, qtc.QPointF)
-    def handleNewFamType(self, first_gen, fam_name, fam_type, root_pt):
-        self.addNewFamily(first_gen=first_gen, fam_name=fam_name, fam_type=fam_type, root_pt=root_pt)
                 
 
     def addNewFamily(self, first_gen, fam_name, fam_id=None, fam_type=flags.FAM_TYPE.SUBSET, root_pt=None):
@@ -736,8 +705,8 @@ class Tree(qtc.QObject):
 
         # Connect signals
         new_family.setParent(self)
-        new_family.edit_char.connect(self.addCharEdit)
-        new_family.add_descendant.connect(lambda x: self.requestNewChar.emit(flags.CHAR_TYPE.DESCENDANT, x))
+        new_family.edit_char.connect(self.parent().addCharacterEdit)
+        new_family.add_descendant.connect(lambda x: self.parent().createCharacter(flags.CHAR_TYPE.DESCENDANT, x))
         new_family.remove_character.connect(self.removeCharacter)
         new_family.delete_fam.connect(self.deleteFamily)
         new_family.add_partner.connect(self.createPartnership)
@@ -745,7 +714,7 @@ class Tree(qtc.QObject):
         new_family.remove_partnership.connect(self.divorceProctor)
 
         # self.scene.addFamToScene(new_family)
-        self.addFamToScene.emit(new_family)
+        self.parent().scene.addFamToScene(new_family)
         new_family.set_grid()
         new_family.build_tree()
         
@@ -840,22 +809,22 @@ class Tree(qtc.QObject):
             char_id: id of one of the characters involved in the partnership
         '''
         self.selection_window = PartnerSelect()
-        self.selection_window.new_char.clicked.connect(lambda: self.requestNewChar.emit(flags.CHAR_TYPE.PARTNER, char_id))
+        self.selection_window.new_char.clicked.connect(lambda: self.parent().createCharacter(flags.CHAR_TYPE.PARTNER, char_id))
         self.selection_window.char_select.clicked.connect(lambda: self.matchMaker(char_id))
         self.selection_window.show()
     
 
-    def initiateMatchMaker(self, char1_id, char2=None):
-        if not char2:
-            self.charRequest.emit(char1_id)
-        else:
-            matchMaker(char1_id, char2)
+    # def initiateMatchMaker(self, char1_id, char2=None):
+    #     if not char2:
+    #         self.charRequest.emit(char1_id)
+    #     else:
+    #         matchMaker(char1_id, char2)
 
-    @qtc.pyqtSlot(uuid.UUID, object)
-    def receiveCharacter(self, original_char, selected_char):
-        if not selected_char or not isinstance(selected_char, Character):
-            return
-        matchMaker(original_char, selected_char)
+    # @qtc.pyqtSlot(uuid.UUID, object)
+    # def receiveCharacter(self, original_char, selected_char):
+    #     if not selected_char or not isinstance(selected_char, Character):
+    #         return
+    #     matchMaker(original_char, selected_char)
 
 
     def matchMaker(self, char1_id, char_2=None):
@@ -868,11 +837,11 @@ class Tree(qtc.QObject):
             char2 - optional parameter for the second character (user will be
                     prompted for a selection if none provided)
         '''
-        # if not char_2:
-        #     # char_2 = self.requestCharacter("Please select a partner")
-        #     char_2 = charRequest("Please select a partner")
-        #     if not isinstance(char_2, Character):
-        #         return
+        if not char_2:
+            # char_2 = self.requestCharacter("Please select a partner")
+            char_2 = self.parent().requestCharacter("Please select a partner")
+            if not isinstance(char_2, Character):
+                return
         char_1 = Tree.CharacterList.search(char1_id)
         if not char_1:
             return
@@ -1044,7 +1013,7 @@ class Tree(qtc.QObject):
             self.CURRENT_FAMILIES.remove(fam_id)
         fam = self.MasterFamilies[fam_id]
         # self.scene.removeFamFromScene(fam)
-        self.delFamFromScene.emit(fam)
+        self.parent().removeFamFromScene(fam)
         self.families_in_scene.remove(fam)
         for char in fam.getMembersAndPartners():
             if Tree.CharacterList.search(char):
@@ -1186,12 +1155,12 @@ class Tree(qtc.QObject):
                     for graphic_char in Tree.CharacterList.search(char['char_id']):
                         Tree.MasterFamilies[graphic_char.getTreeID()].filtered.add(graphic_char)
                         # self.scene.removeItem(graphic_char)
-                        self.delCharFromScene(graphic_char)
+                        self.parent().scene.removeItem(graphi_char)
                         graphic_char.setParent(None)
                         graphic_char.setParentItem(None)
             # self.scene.update()
             # self.viewport().update()
-            self.sceneUpdate.emit()
+            self.parent().updateView()
 
     @qtc.pyqtSlot(int, str)
     @qtc.pyqtSlot(int, int)
@@ -1212,7 +1181,7 @@ class Tree(qtc.QObject):
                         for char in family.getMembersAndPartners():
                             char.setRulerDisplay(False)              
                 # self.scene.update()
-                self.sceneUpdate.emit()
+                self.parent().updateView()
             
             elif flag == flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES:
                 if flags.FAMILY_FLAGS.DISPLAY_FAM_NAMES in self.CURRENT_FAMILY_FLAGS:
@@ -1227,7 +1196,7 @@ class Tree(qtc.QObject):
                     for family in self.MasterFamilies.values():
                         family.setNameDisplay(False)
                 # self.scene.update()
-                self.sceneUpdate.emit()
+                self.parent().updateView()
 
             elif flag == flags.FAMILY_FLAGS.INCLUDE_PARTNERS:
                 if flags.FAMILY_FLAGS.INCLUDE_PARTNERS in self.CURRENT_FAMILY_FLAGS:
@@ -1286,7 +1255,7 @@ class Tree(qtc.QObject):
                 for char in Tree.CharacterList:
                     char.setDisplayMode(flags.TREE_ICON_DISPLAY.NAME)
             # self.scene.update()
-            self.sceneUpdate.emit()
+            self.parent().updateView()
         
         elif flag_type == flags.GROUP_SELECTION_ITEM.FAMILY:
             family_record = self.families_db.get(where('fam_name') == flag)
