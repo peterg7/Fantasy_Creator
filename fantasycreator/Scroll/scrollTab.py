@@ -3,9 +3,11 @@
 from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 
+# Built-in Modules
+import logging
+
 # User-defined Modules
 from .scrollGraphics import CharacterScroll, EntrySelectionView
-
 
 # craete Timeline scene
 class ScrollTab(qtw.QMainWindow):
@@ -88,10 +90,10 @@ class ScrollTab(qtw.QMainWindow):
     
     @qtc.pyqtSlot()
     def saveRequest(self):
-        print('Saving scroll...')
+        logging.debug('Saving scroll...')
         if self.selectionview:
             self.selectionview.saveEdits()
 
     @qtc.pyqtSlot()
     def preferenceUpdate(self):
-        print('Scroll: Received preference notification...')
+        logging.debug('Received preference notification...')

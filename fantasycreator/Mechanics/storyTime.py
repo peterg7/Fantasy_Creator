@@ -19,9 +19,9 @@ class TimeConstants():
     INDEXED_ORDER = dict(enumerate(NAMED_ORDER.keys())) # {0: year, 1: month ...}
     INDEXED_ORDER_INV = dict((val, key) for key, val in INDEXED_ORDER.items()) # {'year': 0', 'month': 2 ...}
     
-    MIN_YEAR, MAX_YEAR = 0, 0
-    MIN_MONTH, MAX_MONTH = 0, 0
-    MIN_DAY, MAX_DAY = 0, 0
+    MIN_YEAR, MAX_YEAR = TIME_ONE_RNG[0], TIME_ONE_RNG[1]
+    MIN_MONTH, MAX_MONTH = TIME_TWO_RNG[0], TIME_TWO_RNG[1]
+    MIN_DAY, MAX_DAY = TIME_THREE_RNG[0], TIME_THREE_RNG[1]
 
     ONE_FRMT = 2
     TWO_FRMT = 2
@@ -33,20 +33,21 @@ class TimeConstants():
     MAX_TIME_ONE = TIME_ONE_RNG[1]
     MAX_TIME_TWO = TIME_TWO_RNG[1]
     MAX_TIME_THREE = TIME_THREE_RNG[1]
-    # MAX_TIME = [2400, 65, 52]
-    MAX_TIME = None
+    # MAX_TIME = Time(MAX_TIME_ONE, MAX_TIME_TWO, MAX_TIME_THREE)
+    MIN_TIME = None
     
 
     MIN_TIME_ONE = TIME_ONE_RNG[0]
     MIN_TIME_TWO = TIME_TWO_RNG[0]
     MIN_TIME_THREE = TIME_THREE_RNG[0]
-    # MIN_TIME = [1500, 1, 1]
+    # MIN_TIME = Time(MIN_TIME_ONE, MIN_TIME_TWO, MIN_TIME_THREE)
     MIN_TIME = None
 
     PREV_TIME_TRANSFORM = None
 
     mutex = Lock()
 
+    @staticmethod
     def init(params):
         if time_ord := params.get('time_order', None):
             TimeConstants.NAMED_ORDER = time_ord
@@ -65,6 +66,7 @@ class TimeConstants():
 
         TimeConstants.updateConstants()
         
+    @staticmethod
     def updateConstants():
         TimeConstants.mutex.acquire()
         TimeConstants.NAMED_ORDER_INV = dict((val, key) for key, val in TimeConstants.NAMED_ORDER.items()) # {'ONE': "year", 'TWO': "month", 'THREE':"day"}
@@ -95,6 +97,7 @@ class TimeConstants():
                                                         TimeConstants.THREE_FRMT)
         TimeConstants.mutex.release()
 
+    @staticmethod
     def setOrder(order_dict):
         TimeConstants.mutex.acquire()
         TimeConstants.PREV_TIME_TRANSFORM = dict(TimeConstants.INDEXED_ORDER)
@@ -114,21 +117,27 @@ class TimeConstants():
         TimeConstants.NAMED_ORDER = order_dict
         TimeConstants.mutex.release()
 
+    @staticmethod
     def setYearFormat(frmt_len):
         setattr(TimeConstants, "{}_FRMT".format(TimeConstants.NAMED_ORDER['year']), frmt_len)
     
+    @staticmethod
     def setMonthFormat(frmt_len):
         setattr(TimeConstants, "{}_FRMT".format(TimeConstants.NAMED_ORDER['month']), frmt_len)
     
+    @staticmethod
     def setDayFormat(frmt_len):
         setattr(TimeConstants, "{}_FRMT".format(TimeConstants.NAMED_ORDER['day']), frmt_len)
     
+    @staticmethod
     def setYearRange(rng_tuple):
         setattr(TimeConstants, "TIME_{}_RNG".format(TimeConstants.NAMED_ORDER['year']), rng_tuple)
 
+    @staticmethod
     def setMonthRange(rng_tuple):
         setattr(TimeConstants, "TIME_{}_RNG".format(TimeConstants.NAMED_ORDER['month']), rng_tuple)
     
+    @staticmethod
     def setDayRange(rng_tuple):
         setattr(TimeConstants, "TIME_{}_RNG".format(TimeConstants.NAMED_ORDER['day']), rng_tuple)
 

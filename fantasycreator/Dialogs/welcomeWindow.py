@@ -9,7 +9,7 @@ import sys
 import time
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 # Opening window
 class WelcomeWindow(qtw.QDialog):

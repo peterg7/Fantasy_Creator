@@ -9,12 +9,13 @@ from tinydb import where
 
 # Built-in Modules
 import uuid
+import logging
 
 # User-defined Modules
-from Dialogs.lineInputs import UserLineInput
-from Tree.character import Character
-from Data.database import DataFormatter
-from Mechanics.storyTime import DateLineEdit
+from fantasycreator.Dialogs.lineInputs import UserLineInput
+from fantasycreator.Tree.character import Character
+from fantasycreator.Data.database import DataFormatter
+from fantasycreator.Mechanics.storyTime import DateLineEdit
 
 # create Timeline view
 class CharacterScroll(qtw.QWidget):
@@ -23,7 +24,7 @@ class CharacterScroll(qtw.QWidget):
     SCALE_TO_FIT_INCREMENT = 0.95 # 95%
 
     def __init__(self, parent=None):
-        print('Initializing scroll...')
+        logging.debug('Initializing scroll...')
         super(CharacterScroll, self).__init__(parent)
 
         layout = qtw.QVBoxLayout()
@@ -39,7 +40,7 @@ class CharacterScroll(qtw.QWidget):
 
 
     def init_scroll(self):
-        print('Building scroll...')
+        logging.debug('Building scroll...')
         global_events = set()
         known_locations = set()
         event_types = set()

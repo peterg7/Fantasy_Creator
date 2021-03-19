@@ -5,7 +5,7 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 
 class PaintButtonLayout(qtw.QGridLayout):

@@ -83,3 +83,5 @@ class HashList:
             return x in self.arr
         return any(x is char for char in self.arr)
         
+    def __str__(self):
+        return self.arr

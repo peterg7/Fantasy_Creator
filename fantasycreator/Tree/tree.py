@@ -11,7 +11,7 @@ of the MIT License along with this program. If not, see
 <https://www.mit.edu/~amini/LICENSE.md>.
 '''
 __author__ = "Peter C Gish"
-__date__ = "3/14/21"
+__date__ = "3/16/21"
 __maintainer__ = "Peter C Gish"
 __version__ = "1.0.1"
 
@@ -29,6 +29,7 @@ import numpy as np
 from itertools import groupby
 from fractions import Fraction
 from collections import deque 
+import logging
 
 # 3rd Party
 from tinydb import where
@@ -37,19 +38,20 @@ from tinydb import where
 from .family import Family
 from .treeAccessories import PartnerSelect, ParentSelect, CharacterTypeSelect, CharacterView, CharacterCreator
 from .character import Character
-from Dialogs.messageBoxes import CustomMsgBox, AutoCloseMsgBox
-from Dialogs.lineInputs import UserLineInput
-from Dialogs.pictureEditor import PictureEditor 
-import Mechanics.flags as flags
-from Data.graphStruct import Graph
-from Data.hashList import HashList
-from Data.database import DataFormatter
+from fantasycreator.Dialogs.pictureEditor import PictureEditor 
+import fantasycreator.Mechanics.flags as flags
+from fantasycreator.Data.graphStruct import Graph
+from fantasycreator.Data.hashList import HashList
+from fantasycreator.Data.database import DataFormatter
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 
 class Tree(qtc.QObject):
+    ''' Object to handle the non-graphical aspects of managing families such as
+    creating/removing characters and families.
+    '''
 
     # Custom signals
     addedChars = qtc.pyqtSignal(list)
@@ -97,7 +99,7 @@ class Tree(qtc.QObject):
         '''
         Connect signals to each stored family and add each one to the scene
         '''
-        print('Building tree...')
+        logging.debug('Building tree...')
         self.assembleTrees()
 
         if not Tree.MasterFamilies:
@@ -152,13 +154,14 @@ class Tree(qtc.QObject):
         if '' in families:
             families.remove('')
 
-        CharacterCreator.SEX_ITEMS.extend(x for x in sexes)
+        CharacterCreator.SEX_ITEMS.extend(sexes)
         CharacterCreator.SEX_ITEMS.append('Other...')
-        CharacterCreator.RACE_ITEMS.extend(x for x in races)
+        CharacterCreator.RACE_ITEMS.extend(races)
         CharacterCreator.RACE_ITEMS.append('Other...')
-        CharacterCreator.KINGDOM_ITEMS.extend(x for x in kingdoms)
+        CharacterCreator.KINGDOM_ITEMS.extend(kingdoms)
         CharacterCreator.KINGDOM_ITEMS.append('New...')
-        CharacterCreator.FAMILY_ITEMS.extend(x for x in families)
+        CharacterCreator.FAMILY_ITEMS.extend(families)
+        CharacterCreator.FAMILY_ITEMS.append('None')
     
 
     def assembleTrees(self):
@@ -176,7 +179,6 @@ class Tree(qtc.QObject):
             # Create romance family
             for rom_fam_id in rom_fam_ids:
                 if rom_fam_id and self.families_db.contains(where('fam_id') == rom_fam_id):
-                    
                     if rom_fam_id not in Tree.MasterFamilies.keys():
                         graphic_char.setTreeID(rom_fam_id)
                         Tree.MasterFamilies[rom_fam_id] = Family([graphic_char], rom_fam_id)
@@ -192,7 +194,7 @@ class Tree(qtc.QObject):
                     Tree.MasterFamilies[blood_fam_id] = Family([graphic_char], blood_fam_id)
 
 
-            if char_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID'] or char_dict['parent_0'] == self.meta_db.all()[0]['TERM_ID']:
+            if char_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID']:
                 continue
 
             if char_dict['parent_0']:
@@ -418,18 +420,13 @@ class Tree(qtc.QObject):
         Args: 
             char_dict - Dictionary representation of the new character
             char_type - Character type of the new character (Normal/Partner)
-            parent - optional parant character of the new one
+            parent - optional parent (or partner) character of the new one
         '''
-
         added_partner = False
         if char_type == flags.CHAR_TYPE.DESCENDANT:
             if isinstance(parent, uuid.UUID):
                 parent_id = parent
-
-            # elif isinstance(parent, list): # assume to be selectionList
-            #     existing_char = parent[0] # get first character
             elif isinstance(parent, Character):
-                # parent_char = parent
                 parent_id = parent.getID()
             elif not parent:
                 parent = self.parent().requestCharacter('Please select a parent')
@@ -443,28 +440,34 @@ class Tree(qtc.QObject):
             
             parent_dict = self.character_db.get(where('char_id') == parent_id)
             parent_char_instances = Tree.CharacterList.search(parent_id)
-            parent_ids = []
-            for instance in parent_char_instances:
-                parent_ids.append(instance.getTreeID())
-
+            parent_tree_ids = [instance.getTreeID() for instance in parent_char_instances]
             fam_id = parent_dict['fam_id']
             other_parent_dict = None
-            other_parent_ids = []
+            other_parent_tree_ids = []
+
             # Add to relationship families (if exists)
             if parent_dict['partnerships']:
                 if len(parent_dict['partnerships']) > 1:
                     # Need to launch dialog to select which relationship to place the desc. (or discern based on selection)
-                    # print("Currently Unsupported")
+                    logging.error("More than 1 partner is currently unsupported")
                     return
                 else:
                     fam_id = parent_dict['partnerships'][0]['rom_id']
-                    if parent_dict['partnerships'][0]['p_id'] != self.meta_db.all()[0]['NULL_ID']:
-                        other_parent_dict = self.character_db.get(where('char_id') == parent_dict['partnerships'][0]['p_id'])
-                        char_dict['parent_1'] = other_parent_dict['char_id']
+                    other_parent_dict = self.character_db.get(where('char_id') == parent_dict['partnerships'][0]['p_id'])
+                    char_dict['parent_1'] = other_parent_dict['char_id']
 
-                        other_parent_instances = Tree.CharacterList.search(other_parent_dict['char_id'])
-                        for instance in other_parent_instances:
-                            other_parent_ids.append(instance.getTreeID())
+                    # check to see if this is the first offspring of a partnership
+                    if not self.families_db.get(where('fam_id') == fam_id):
+                        if response := self.spawnFamily(parent1_id=parent_dict['char_id'],
+                                        parent2_id=other_parent_dict['char_id'],
+                                        fam1_id=parent_dict['fam_id'], 
+                                        fam2_id=other_parent_dict['fam_id'], 
+                                        rom_id=fam_id):
+                            fam_id = response
+                        
+                    other_parent_instances = Tree.CharacterList.search(other_parent_dict['char_id'])
+                    for instance in other_parent_instances:
+                        other_parent_tree_ids.append(instance.getTreeID())
 
             char_dict['fam_id'] = fam_id
             char_dict['parent_0'] = parent_dict['char_id']
@@ -486,12 +489,15 @@ class Tree(qtc.QObject):
             # else:
             new_char = Character(formatted_dict)
             new_char.setParentID(formatted_dict['parent_0'])
-            if other_parent_ids:
+            if other_parent_tree_ids:
                 formatted_dict['parent_1'] = other_parent_dict['char_id']
                 new_char.setParentID(formatted_dict['parent_1'], 1)
             
-            instance_ids = set(parent_ids + other_parent_ids)
+            instance_ids = set(parent_tree_ids + other_parent_tree_ids)
             instance_ids.add(fam_id)
+
+            print(instance_ids)
+
             for f_id in instance_ids:
                 if other_parent_dict:
                     if f_id == other_parent_dict['fam_id']:
@@ -509,7 +515,6 @@ class Tree(qtc.QObject):
                 # CREATE CLONE
                 new_char = Character(new_char.toDict())
             
-
         elif char_type == flags.CHAR_TYPE.PARTNER:
             if isinstance(parent, uuid.UUID):
                 existing_char = Tree.CharacterList.search(parent)[0]
@@ -522,26 +527,25 @@ class Tree(qtc.QObject):
                 if isinstance(partner, Character):
                     existing_char = partner
                 else:
+                    print('No partner selected!')
                     return
+            
             existing_dict = self.character_db.get(where('char_id') == existing_char.getID())
             
             fam_name = char_dict['family']
             kingdom_id = self.getKingdom(kingdom_name=char_dict['kingdom'])
             formatted_dict = self.entry_formatter.char_entry(char_dict, kingdom_id=kingdom_id)
             
-            rom_id = None
-            if existing_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID']:
-                if not formatted_dict['parent_0']:
-                    formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
-                    rom_id = existing_dict['fam_id']
-
-            romance_entry = self.entry_formatter.partnership_entry(existing_dict['char_id'], rom_id)
+            if not formatted_dict['parent_0']:
+                formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
+                formatted_dict['parent_1'] = self.meta_db.all()[0]['NULL_ID']    
+        
+            romance_entry = self.entry_formatter.partnership_entry(existing_dict['char_id'])
             formatted_dict['partnerships'] = [romance_entry]
-            existing_dict['partnerships'].append({'rom_id': romance_entry['rom_id'], 'p_id': formatted_dict['char_id']})
+            existing_dict['partnerships'].append(self.entry_formatter.partnership_entry(formatted_dict['char_id'], romance_entry['rom_id']))
             
             # NOTE: set family to NULL if not entered in CharacterCreator
-            parent = None
-            if not fam_name:
+            if not fam_name or char_dict['family'] == 'None':
                 create_new_fam = self.parent().confirmNewFamily()
                 if create_new_fam == qtw.QMessageBox.Yes:
                     self.newFamilyWrapper([formatted_dict, existing_dict], fam_type=flags.FAM_TYPE.NULL_TERM)
@@ -549,15 +553,25 @@ class Tree(qtc.QObject):
                 else:
                     formatted_dict['fam_id'] = self.meta_db.all()[0]['NULL_ID']
                     formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
-            else:
+            else: # the partner selected an existing family when created
                 fam_id = self.getFamily(fam_name=fam_name)
                 if fam_id:
                     formatted_dict['fam_id'] = fam_id
                     parent = self.parent().requestCharacter('Please select a parent')
                     if not isinstance(parent, Character):
-                        print("No parent selected!")
-                        return
-                    formatted_dict['parent_0'] = parent.getID()
+                        print("No parent selected! Assigning NULL.")
+                        formatted_dict['fam_id'] = self.meta_db.all()[0]['NULL_ID']
+                        formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
+
+                    else:
+                        formatted_dict['parent_0'] = parent.getID()
+
+                    # Don't make a new family if this character is an endpoint
+                elif formatted_dict['parent_0'] == self.meta_db.all()[0]['NULL_ID']:
+                    fam_entry = self.entry_formatter.family_entry(fam_name, flags.FAM_TYPE.NULL_TERM)
+                    formatted_dict['fam_id'] = fam_entry['fam_id']
+                    self.families_db.insert(fam_entry)
+
                 else:
                     self.newFamilyWrapper([formatted_dict, existing_dict], fam_name)
                     added_partner = True
@@ -569,9 +583,6 @@ class Tree(qtc.QObject):
             else:
                 new_char = Character(formatted_dict)
                 new_char_fam = formatted_dict['fam_id']
-            # new_char.setTreeID(existing_dict['fam_id'])
-            if parent:
-                new_char.setParent(0, parent.getID())
             
             
             for instance in Tree.CharacterList.search(existing_char.getID()):
@@ -593,14 +604,16 @@ class Tree(qtc.QObject):
                 # instance_ids.append(instance.getTreeID())
                     mate = Tree.MasterFamilies[fam_id].addMate(new_char, romance_entry['rom_id'], instance)
                     Tree.CharacterList.add(mate)
+            
+            self.character_db.update(existing_dict, where('char_id') == existing_dict['char_id'])
                 
-            if flags.FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
-                self.requestFilterChange.emit(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
-            else:
-                self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
-                self.filterTree(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
+            # if flags.FAMILY_FLAGS.INCLUDE_PARTNERS not in self.CURRENT_FAMILY_FLAGS:
+            #     self.requestFilterChange.emit(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
+            # else:
+            #     self.CURRENT_FAMILY_FLAGS.remove(flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
+            #     self.filterTree(flags.FAMILY_FLAGS.BASE, flags.FAMILY_FLAGS.INCLUDE_PARTNERS)
         else:
-            print('Unknown character type...')
+            logging.debug('Unknown character type...')
             return
 
         # print()
@@ -630,6 +643,7 @@ class Tree(qtc.QObject):
         if not added_partner:
             self.character_db.insert(formatted_dict)
             self.addedChars.emit([new_char.getID()])
+
         # if char_type != CHAR_TYPE.PARTNER:
         self.update_tree()
     
@@ -688,20 +702,23 @@ class Tree(qtc.QObject):
                     formatted_dict['fam_id'] = fam_id
                     if not formatted_dict['parent_0']:
                         formatted_dict['parent_0'] = self.meta_db.all()[0]['NULL_ID']
+                    if not formatted_dict['parent_1']:
+                        formatted_dict['parent_1'] = self.meta_db.all()[0]['NULL_ID']
                     
                     self.character_db.insert(formatted_dict)
                     new_char = Character(formatted_dict)
                     Tree.CharacterList.add(new_char)
                     self.addedChars.emit([new_char.getID()])
                 
-                new_char.setTreeID(fam_id)                
+                new_char.setTreeID(fam_id)
                 family_heads.append(new_char)
-        
+
         new_family = Family(first_gen=family_heads, family_id=fam_id, family_type=fam_type, family_name=fam_name, pos=root_pt)
         Tree.MasterFamilies[fam_id] = new_family
         self.CURRENT_FAMILIES.add(fam_id)
         self.hideAddCharacter.emit(True)
-        CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
+        # if fam_name not in CharacterCreator.FAMILY_ITEMS:
+        #     CharacterCreator.FAMILY_ITEMS.insert(-1, fam_name)
 
         # Connect signals
         new_family.setParent(self)
@@ -713,7 +730,6 @@ class Tree(qtc.QObject):
         new_family.add_parent.connect(self.addParent)
         new_family.remove_partnership.connect(self.divorceProctor)
 
-        # self.scene.addFamToScene(new_family)
         self.parent().scene.addFamToScene(new_family)
         new_family.set_grid()
         new_family.build_tree()
@@ -812,20 +828,6 @@ class Tree(qtc.QObject):
         self.selection_window.new_char.clicked.connect(lambda: self.parent().createCharacter(flags.CHAR_TYPE.PARTNER, char_id))
         self.selection_window.char_select.clicked.connect(lambda: self.matchMaker(char_id))
         self.selection_window.show()
-    
-
-    # def initiateMatchMaker(self, char1_id, char2=None):
-    #     if not char2:
-    #         self.charRequest.emit(char1_id)
-    #     else:
-    #         matchMaker(char1_id, char2)
-
-    # @qtc.pyqtSlot(uuid.UUID, object)
-    # def receiveCharacter(self, original_char, selected_char):
-    #     if not selected_char or not isinstance(selected_char, Character):
-    #         return
-    #     matchMaker(original_char, selected_char)
-
 
     def matchMaker(self, char1_id, char_2=None):
         '''
@@ -915,30 +917,48 @@ class Tree(qtc.QObject):
         self.character_db.update({'partnerships': char2_relationships }, where('char_id') == char_2.getID())
         self.update_tree()
     
-    def requestCharacter(self, msg_prompt): 
+    def spawnFamily(self, parent1_id, parent2_id, fam1_id, fam2_id, rom_id):
+        ''' When a new offspring is spawned off of a partnership, a new family
+        is created. This method prompts the user to choose a family name and
+        updates the database accordingly
         '''
-        Method used when the user must select a character. Waits 
-        `char_selection_time` for user to make a selection
-        '''
-        self.selecting_char = True
-        self.selected_char = None
-        print(msg_prompt)
-        
-        # AutoCloseMessageBox.showWithTimeout(3, msg_prompt)
-        prompt = CustomMsgBox(msg_prompt)
-        prompt.move(self.width()/2, 0)
-        self.sceneClicked.connect(prompt.close)
-        prompt.show()
-        
-        self.tempStatusbarMsg.emit(f'{msg_prompt}...', self.char_selection_timeout)
-        loop = qtc.QEventLoop()
-        self.sceneClicked.connect(loop.quit)
-        self.sceneClicked.connect(self.inspectSelection)
-        timer = qtc.QTimer()
-        timer.singleShot(self.char_selection_timeout, loop.quit)
-        loop.exec()
-        return self.selected_char
-    
+        parent1_fam = self.families_db.get(where('fam_id') == fam1_id)
+        parent2_fam = self.families_db.get(where('fam_id') == fam2_id)
+
+        if not parent1_fam or not parent2_fam:
+            logging.debug('Not sure how to handle this situation yet...')
+            return False
+        if response := self.parent().selectFamilyName([parent1_fam['fam_name'], parent2_fam['fam_name'], 'Other']):
+            update_parents = True
+            if response == 'Other':
+                new_name = self.parent().gatherFamName()
+                update_parent = False
+            elif response == parent1_fam['fam_name']:
+                new_name = parent1_fam['fam_name']
+                rom_id = fam1_id
+                update_parents = fam1_id
+            elif response == parent2_fam['fam_name']:
+                new_name = parent2_fam['fam_name']
+                rom_id = fam2_id
+            
+            if not new_name:
+                return False
+            if update_parents:
+                parent1_dict = self.character_db.get(where('char_id') == parent1_id)
+                parent2_dict = self.character_db.get(where('char_id') == parent2_id)
+                
+                # NOTE: assumes only one partnership
+                parent1_dict['partnerships'][0]['rom_id'] = rom_id
+                parent2_dict['partnerships'][0]['rom_id'] = rom_id
+
+                self.families_db.update(parent1_dict, where('char_id') == parent1_id)
+                self.families_db.update(parent2_dict, where('char_id') == parent2_id)
+
+            else:
+                formatted_entry = self.entry_formatter.family_entry(new_name, flags.FAM_TYPE.SUBSET, rom_id)
+                self.families_db.insert(formatted_entry)
+            return rom_id
+
 
     ##----------------- Removing characters/relationships ------------------##
 
@@ -955,10 +975,14 @@ class Tree(qtc.QObject):
         partner_removal = False
         first_gen = False
         char_instances = tuple(Tree.CharacterList.search(char_id))
+
+        # find instance of blood family
+        
+
         for instance in char_instances:
             # print(f'{instance.getTreeID()} --> {instance.getName()}')
             first_gen |= (instance is Tree.MasterFamilies[instance.getTreeID()].getFirstGen()[0])
-            char_removed, partner_removed = Tree.MasterFamilies[instance.getTreeID()].delete_character(char_id)
+            char_removed, partner_removed = Tree.MasterFamilies[instance.getTreeID()].deleteCharacter(char_id)
             if char_removed:
                 Tree.CharacterList.remove(instance)
                 del instance
@@ -976,7 +1000,7 @@ class Tree(qtc.QObject):
             partner_id = partnership[0]['p_id']
             self.divorceProctor(char_id, partner_id)
         if char_removal:
-            print(f"Removed {char_dict['name']} from tree")
+            logger.info(f"Removed {char_dict['name']} from tree")
             self.tempStatusbarMsg.emit(f"Removed {char_dict['name']}", 2000)
             self.removedChars.emit([char_id])
             self.character_db.remove(where('char_id') == char_id)
@@ -996,15 +1020,7 @@ class Tree(qtc.QObject):
         fam_name = fam_entry['fam_name']
         # print(f"Deleting fam: {fam_id, fam_name}")
         # TODO: start here for fixing issue of character deleted even if aborted
-        delete_fam_prompt = qtw.QMessageBox(qtw.QMessageBox.Warning, "Delete family?", 
-                            (f"Are you sure you would like to delete the" 
-                            f"{fam_name} family?"),
-                            qtw.QMessageBox.No | qtw.QMessageBox.Yes, self)
-        delete_fam_prompt.setInformativeText('This action can not be undone.')
-        prompt_font = qtg.QFont('Didot', 20)
-        delete_fam_prompt.setFont(prompt_font)
-        response = delete_fam_prompt.exec()
-        if response != qtw.QMessageBox.Yes:
+        if not self.parent().promptDeleteFam(fam_name):
             return
 
         # fam_name = self.families_db.get(where('fam_id') == fam_id)['fam_name']
@@ -1125,13 +1141,13 @@ class Tree(qtc.QObject):
         if fam_name:
             fam_record = self.families_db.get(where('fam_name') == fam_name)
             if not fam_record:
-                print('PROBLEM: unrecognized family, make new??')
+                logging.warning('PROBLEM: unrecognized family, make new??')
             else:
                 return fam_record['fam_id']
         elif fam_id:
             fam_record = self.families_db.get(where('fam_id') == fam_id)
             if not fam_record:
-                print('PROBLEM: unrecognized family, make new??')
+                logging.warning('PROBLEM: unrecognized family, make new??')
             else:
                 return fam_record['fam_name']
         else:
@@ -1155,7 +1171,7 @@ class Tree(qtc.QObject):
                     for graphic_char in Tree.CharacterList.search(char['char_id']):
                         Tree.MasterFamilies[graphic_char.getTreeID()].filtered.add(graphic_char)
                         # self.scene.removeItem(graphic_char)
-                        self.parent().scene.removeItem(graphi_char)
+                        self.parent().scene.removeItem(graphic_char)
                         graphic_char.setParent(None)
                         graphic_char.setParentItem(None)
             # self.scene.update()
@@ -1226,14 +1242,13 @@ class Tree(qtc.QObject):
                     self.CURRENT_FAMILY_FLAGS.add(flags.FAMILY_FLAGS.CONNECT_PARTNERS)
                     print('Connecting families')
                     self.previous_families = set(self.CURRENT_FAMILIES)
-                    # termination_id = self.meta_db.all()[0]['TERM_ID']
                     for fam_id, family in self.MasterFamilies.items():
                         # family_head = self.character_db.get(where('char_id') == family.getFirstGen()[0].getID())
                         # char_instances = Tree.CharacterList.search(family_head['char_id'])
 
                         # if (family_head['parent_0'] in Tree.CharacterList or family_head['parent_1'] in Tree.CharacterList) \
                         #     or family_head['parent_0'] != termination_id \
-                        if family._term_type != flags.FAM_TYPE.ENDPOINT and fam_id in self.previous_families:
+                        if family._term_type != flags.FAM_TYPE.NULL_TERM and fam_id in self.previous_families:
                             self.CURRENT_FAMILIES.remove(family.getID())
                         else:
                             family.explodeFamily(True)

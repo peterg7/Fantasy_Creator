@@ -14,9 +14,9 @@ import types
 import uuid
 
 # User-defined Modules
-from Dialogs.pictureEditor import PictureLineEdit, PictureEditor
-from Mechanics.storyTime import Time, DateLineEdit, DateValidator
-from Mechanics.flags import EVENT_TYPE
+from fantasycreator.Dialogs.pictureEditor import PictureLineEdit, PictureEditor
+from fantasycreator.Mechanics.storyTime import Time, DateLineEdit, DateValidator
+from fantasycreator.Mechanics.flags import EVENT_TYPE
 
 
 ## Embededded Objects

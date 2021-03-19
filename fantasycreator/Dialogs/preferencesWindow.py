@@ -154,7 +154,6 @@ class GeneralStack(qtw.QWidget):
         world = preferences.get('world_name', None)
         if world:
             self.world_name.setText(world)
-        img_size = preferences.get('char_img_size', None)
     
     @qtc.pyqtSlot()
     def packagePrefs(self):

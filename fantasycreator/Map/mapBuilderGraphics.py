@@ -12,16 +12,17 @@ from tinydb import where
 import random
 import types
 import uuid
+import logging
 
 # User-defined Modules
 from .mapBuilderObjects import GraphicCharacter, GraphicLocation, LocationView, LocationCreator
 from .mapBuilderObjects import CharacterSelect, TimestampCreator, LocationSelect
-from Dialogs.pictureEditor import PictureLineEdit, PictureEditor 
-from Tree.treeAccessories import CharacterView, CharacterCreator
-from Data.database import DataFormatter
-from Mechanics.animator import Animator
-from Mechanics.storyTime import Time
-from Mechanics.flags import ANIMATION_MODE, EVENT_TYPE
+from fantasycreator.Dialogs.pictureEditor import PictureLineEdit, PictureEditor 
+from fantasycreator.Tree.treeAccessories import CharacterView, CharacterCreator
+from fantasycreator.Data.database import DataFormatter
+from fantasycreator.Mechanics.animator import Animator
+from fantasycreator.Mechanics.storyTime import Time
+from fantasycreator.Mechanics.flags import ANIMATION_MODE, EVENT_TYPE
 
 class MapView(qtw.QGraphicsView):
 
@@ -44,7 +45,7 @@ class MapView(qtw.QGraphicsView):
     MAX_ZOOM = 14
 
     def __init__(self, parent=None):
-        print('Initializing map...')
+        logging.debug('Initializing map...')
         super(MapView, self).__init__(parent)
 
         self.scene = MapScene()

@@ -27,16 +27,17 @@ import numpy as np
 from collections import deque 
 from itertools import groupby
 from collections import defaultdict
+import logging
 
 # 3rd Party
 from tinydb import where
 
 # User-defined Modules
 from .character import Character
-from Data.treeStruct import Tree
-from Data.graphStruct import Graph
-from Data.hashList import HashList
-from Mechanics.flags import FAM_TYPE
+from fantasycreator.Data.treeGraph import TreeGraph
+from fantasycreator.Data.displayGraph import DisplayGraph
+from fantasycreator.Data.hashList import HashList
+from fantasycreator.Mechanics.flags import FAM_TYPE, REL_TREE_POS, RELATIONSHIP
 
 
 # TODO: Need to add more checks on incoming parameters. Too many assumptions 
@@ -79,14 +80,15 @@ class Family(qtw.QGraphicsObject):
         self._name = family_name
         self._first_gen = first_gen
         self._id = family_id
-        self._term_type = family_type
+        self._fam_type = family_type
         self._tree_loc = pos if pos else self.ROOT_ANCHOR
-        # self._size = len(first_gen)
-        self._size = 1
+
         self._display_root_partner = False
         self._explode = False
-        self.tree = Tree(first_gen[0])
-        self.graph = Graph()
+        
+        self.tree = TreeGraph(first_gen[0])
+        self.display_graph = DisplayGraph()
+
         self.midpoints = {}
         self.members = HashList()
         self.partners = HashList()
@@ -116,6 +118,9 @@ class Family(qtw.QGraphicsObject):
             # self.members.add(self._first_gen[1])
         self.initFirstGen()
 
+
+    ## ------------------- Family Method Definitions ----------------- ##
+
     def initFirstGen(self):
         ''' Add first generation to the scene by declaring the family object
         as their parent. Checks for presence of two characters
@@ -129,6 +134,9 @@ class Family(qtw.QGraphicsObject):
             self._first_gen[1].setParentItem(self)
         # self.setNameDisplay(self._name_display)
 
+
+    ## --------------------- Adding character/mates ------------------ ##
+
     def addChild(self, child, parent):
         ''' Adds a child character to the supplied parent. Subsequently adds
         the new child to the scene
@@ -137,12 +145,11 @@ class Family(qtw.QGraphicsObject):
             child - new character object to be added to this family
             parent - character that will be the parent of child
         '''
-        self.tree.addNode(child, self.tree.getNode(parent))
+        self.tree.addNode(child, parent.getID())
         self.members.add(child)
-        child.setTreeID(self._id)
+        child.setTreeID(self._id) # fam_id is set by the caller
         child.setParent(self)
         child.setParentItem(self)
-        self._size += 1
     
     def addParent(self, parent, child):
         ''' Adds a parent to a given child. Shifts the child's parents so
@@ -152,20 +159,21 @@ class Family(qtw.QGraphicsObject):
             parent - new character to serve as a parent to child
             child - character to be the dependent of parent
         '''
-        parent.setParent(self)
-        parent.setParentItem(self)
-        parent.setTreeID(self._id)
-        self.members.add(parent)
-        if child == self._first_gen[0]:
-            self.tree.addParent(parent)
-            self._first_gen[0] = parent
-            if self._first_gen[1]:
-                self.partners.add(self._first_gen[1])
-                self._first_gen[1] = None
-            if self.scene():
-                self.installFilters()
-        else:
-            self.tree.addParent(parent, self.tree.getNode(child))
+        logging.warning('This feature is under construction')
+        # parent.setParent(self)
+        # parent.setParentItem(self)
+        # parent.setTreeID(self._id)
+        # self.members.add(parent)
+        # if child == self._first_gen[0]:
+        #     self.tree.addParent(parent)
+        #     self._first_gen[0] = parent
+        #     if self._first_gen[1]:
+        #         self.partners.add(self._first_gen[1])
+        #         self._first_gen[1] = None
+        #     if self.scene():
+        #         self.installFilters()
+        # else:
+        #     self.tree.addParent(parent, self.tree.getNode(child))
     
     def addChildRelationship(self, child, parent):
         ''' Simple method to add a child to a parent by inserting child
@@ -175,7 +183,7 @@ class Family(qtw.QGraphicsObject):
             child - new child character to be added to the tree
             parent - character in this tree to serve as the parent of child
         '''
-        self.tree.addNode(child, self.tree.getNode(parent))
+        self.tree.addNode(child, parent.getID())
     
     def addMate(self, mate, r_id, fam_member):
         ''' Creates a partnership between the two supplied parents. Clones
@@ -189,7 +197,7 @@ class Family(qtw.QGraphicsObject):
         '''
         mate_clone = Character(mate.toDict())
         mate_clone.setTreeID(self._id)
-        self.tree.addMate(mate_clone, r_id, self.tree.getNode(fam_member))
+        self.tree.addMate(mate_clone, fam_member.getID())
         if fam_member == self.tree.root.getData() and self._first_gen[1] is None:
             self._first_gen[1] = mate_clone
         else:
@@ -206,12 +214,15 @@ class Family(qtw.QGraphicsObject):
             fam_member - character belonging to this tree that will be partnered
         '''
         mate.setTreeID(self._id)
-        self.tree.addMate(mate, r_id, self.tree.getNode(fam_member))
-        if fam_member == self.tree.root.getData() and self._first_gen[1] is None:
+        self.tree.addMate(mate, fam_member.getID())
+        if fam_member == self.tree.getRoot().getChar() and self._first_gen[1] is None:
             self._first_gen[1] = mate
         else:
             self.partners.add(mate)
 
+    ## ----------------- Removing characters/relationships -------------- ##
+
+    ## TODO: these two methods MUST be doing the same thing and if not, need to be renamed
     def removeMate(self, fam_member, mate):
         ''' Attempts to remove a partnership between two characters. 
 
@@ -219,9 +230,7 @@ class Family(qtw.QGraphicsObject):
             fam_member - character in this tree involved in the partnership
             mate - other character in the partnership
         '''
-        if self.tree.removeMate(fam_member, mate):
-            return True
-        return False
+        return self.tree.removeMate(fam_member, mate)
     
     def removePartnership(self, member_id, partner_id):
         ''' Given two character's ids remove their partnership
@@ -256,12 +265,11 @@ class Family(qtw.QGraphicsObject):
         Args:
             child - character object to be deleted
         '''
-        if self.tree.removeNode(child):
-            self._size -= 1
-            return True
-        return False
+        return self.tree.removeNode(child)
 
-    def delete_character(self, char_id):
+
+    ## FIXME: this method needs some serious work. Very buggy, hard to follow, and inefficient
+    def deleteCharacter(self, char_id):
         ''' Attempts to delete a character including instances in relationships.
         Handles edge cases of being head of family and any partner position.
 
@@ -274,15 +282,18 @@ class Family(qtw.QGraphicsObject):
         if char_id in self.members:
             char = self.members.search(char_id)[0]
             print(f'Removing member: {char}')
-            char_node = self.tree.getNode(char)
-            if char_node == self.tree.getRoot() and self._first_gen[1]:
+            # char_node = self.tree.getNode(char)
+            if char_id == self.tree.getRoot() and self._first_gen[1]:
+            
                 if not self.splitFirstGen(self._first_gen[1], char):
                     return False, False
                 partner_removal = True
             
             else:
-                if char_node.getMates():
-                    partners = [c.getData() for c in char_node.getMates()]
+                # if char_node.getMates():
+                if self.tree.getNumRelations(char_id, RELATIONSHIP.PARTNER):
+                    # partners = [c.getData() for c in char_node.getMates()]
+                    partners = self.tree.getRelations(char_id, RELATIONSHIP.PARTNER)
                     for target in partners:
                         self.scene().removeItem(target)
                         # partner_removal = self.removeMate(char, target)
@@ -308,11 +319,12 @@ class Family(qtw.QGraphicsObject):
             
         elif char_id in self.partners:
             char = self.partners.search(char_id)[0]
-            char_node = self.tree.getNode(char)
-            if char_node:
+            # char_node = self.tree.getNode(char)
+            if char_id in self.tree:
                 print(f'Removing partner: {char}')
                 self.scene().removeItem(char)
-                partners = [c.getData() for c in char_node.getMates()]
+                # partners = [c.getData() for c in char_node.getMates()]
+                partners = self.tree.getRelations(char_id, RELATIONSHIP.PARTNER)
                 member = set(self.members.arr).intersection(partners).pop()
                 partner_removal = self.removeMate(member, char)
                 # self.remove_partnership[uuid.UUID, uuid.UUID].emit(char_id, char.getID())
@@ -326,11 +338,12 @@ class Family(qtw.QGraphicsObject):
 
         elif char_id == self._first_gen[1]:
             char = self._first_gen[1]
-            char_node = self.tree.getNode(char)
-            if char_node:
+            # char_node = self.tree.getNode(char)
+            if char_id in self.tree:
                 print(f'Removing family head: {char}')
                 self.scene().removeItem(char)
-                partners = [c.getData() for c in char_node.getMates()]
+                # partners = [c.getData() for c in char_node.getMates()]
+                partners = self.tree.getRelations(char_id, RELATIONSHIP.PARTNER)
                 member = set(self.members.arr).intersection(partners).pop()
                 partner_removal = self.removeMate(member, char)
                 # self.remove_partnership[uuid.UUID, uuid.UUID].emit(char_id, char.getID())
@@ -354,33 +367,35 @@ class Family(qtw.QGraphicsObject):
             remaining_char - first generation character that is to be kept
             removed_char - other first generation character that is to be deleted
         '''
-        if remaining_char != self._first_gen[0]:
-            self._first_gen[0], self._first_gen[1] = self._first_gen[1], self._first_gen[0]
-            old_root = self.members.search(removed_char)[0]
-            root_node = self.tree.getRoot()
-            root_node.mates = [(x, y) for (x, y) in root_node.mates if x.getData() != self._first_gen[0]]
-            self.tree.replaceNode(removed_char, self._first_gen[0])
-            self._first_gen[0].setTreeID(self._id)
-            self._first_gen[0].setParent(self)
-            self._first_gen[0].setParentItem(self)
-            self.members.add(self._first_gen[0])
-            self.members.remove(removed_char)
+        logging.fatal('This function is currently under construction until further notice.')
+        # if remaining_char != self._first_gen[0]:
+        #     self._first_gen[0], self._first_gen[1] = self._first_gen[1], self._first_gen[0]
+        #     old_root = self.members.search(removed_char)[0]
+        #     root_node = self.tree.getRoot()
+        #     root_node.mates = [(x, y) for (x, y) in root_node.mates if x.getData() != self._first_gen[0]]
+        #     ## FIXME
+        #     # self.tree.replaceNode(removed_char, self._first_gen[0])
+        #     self._first_gen[0].setTreeID(self._id)
+        #     self._first_gen[0].setParent(self)
+        #     self._first_gen[0].setParentItem(self)
+        #     self.members.add(self._first_gen[0])
+        #     self.members.remove(removed_char)
 
-        if self.scene():
-            self.scene().removeItem(self._first_gen[1])
+        # if self.scene():
+        #     self.scene().removeItem(self._first_gen[1])
 
-        if self.removeMate(self._first_gen[0], self._first_gen[1]):
-            print(f'Split family heads and remove {self._first_gen[1]}')
-            self._first_gen[1].setParent(None)
-            del self._first_gen[1]
-            self._first_gen.append(None)
-            if self.scene():
-                self.installFilters()
+        # if self.removeMate(self._first_gen[0], self._first_gen[1]):
+        #     print(f'Split family heads and remove {self._first_gen[1]}')
+        #     self._first_gen[1].setParent(None)
+        #     del self._first_gen[1]
+        #     self._first_gen.append(None)
+        #     if self.scene():
+        #         self.installFilters()
 
-            if self._size <= 1:
-                self.delete_fam.emit(self._id)
-            return True
-        return False
+        #     if self._size <= 1:
+        #         self.delete_fam.emit(self._id)
+        #     return True
+        # return False
 
     # def updateFirstGen(self, parent):
     #     if parent in self._first_gen:
@@ -396,31 +411,33 @@ class Family(qtw.QGraphicsObject):
         return self._name
     
     def getSize(self):
-        return self._size
+        return len(self.tree.nodes())
     
     def getFirstGen(self):
         return self._first_gen
     
     def getChildren(self, parent):
-        return self.tree.getNode(parent).getChildren()
+        return self.tree.getRelations(parent, RELATIONSHIP.DESCENDANT)
 
     def getAllMembers(self):
-        return self.members.arr
+        return self.tree.getFamily()
 
     def getMembersAndPartners(self):
-        if self._first_gen[1]:
-            return self.members.arr + self.partners.arr + [self._first_gen[1]]
-        else:
-            return self.members.arr + self.partners.arr
+        logging.fatal('Out of order')
+        # if self._first_gen[1]:
+        #     return self.members.arr + self.partners.arr + [self._first_gen[1]]
+        # else:
+        #     return self.members.arr + self.partners.arr
 
     def getMember(self, member):
         return self.tree.getNode(member)
     
     def getRoot(self):
-        return self.tree.getRoot()
+        return self.tree.getFamHead()
     
     def getPartners(self):
-        return self.partners.arr
+        logging.fatal('Out of order')
+        # return self.partners.arr
 
     def getRootPos(self):
         return self._tree_loc
@@ -429,28 +446,19 @@ class Family(qtw.QGraphicsObject):
         self._name = name
     
     def setType(self, _type):
-        self._term_type = _type
+        self._fam_type = _type
 
     def setRootPos(self, pos):
         self._tree_loc.setX(pos.x())
         self._tree_loc.setY(pos.y())
-    
-    def setRootHeight(self, height):
-        self.tree.root.setHeight(height)
 
-    def setFirstGen(self, index, char, r_id):
+    def setFirstGen(self, index, char):
         if 0 <= index < 2:
             char_clone = Character(char.toDict())
             char_clone.setTreeID(self._id)
             self._first_gen[index] = char_clone
-            self.tree.addMate(self._first_gen[1], r_id)
+            self.tree.addMate(self._first_gen[1])
             return char_clone
-    
-    def setChildren(self, children):
-        for child in tuple(children):
-            self.tree.addNode(child, self.tree.getRoot())
-            self.members.add(child)
-            self._size += 1
     
     def setNameDisplay(self, state):
         self._name_display = state
@@ -468,16 +476,17 @@ class Family(qtw.QGraphicsObject):
         Args:
             state - boolean value indicating the display of the heads of family
         '''
-        self._display_root_partner = state
-        if not self._display_root_partner and self.scene() and self._first_gen[1]:
-                self.scene().removeItem(self._first_gen[1])
-                self._first_gen[1].setParent(None)
-                self._first_gen[1].setParentItem(None)
-        else:
-            if self._first_gen[1] and self.scene():
-                self._first_gen[1].setParent(self)
-                self._first_gen[1].setParentItem(self)
-                self._first_gen[1].installSceneEventFilter(self)
+        logging.fatal('Stupid function. This crash is deserved')
+        # self._display_root_partner = state
+        # if not self._display_root_partner and self.scene() and self._first_gen[1]:
+        #         self.scene().removeItem(self._first_gen[1])
+        #         self._first_gen[1].setParent(None)
+        #         self._first_gen[1].setParentItem(None)
+        # else:
+        #     if self._first_gen[1] and self.scene():
+        #         self._first_gen[1].setParent(self)
+        #         self._first_gen[1].setParentItem(self)
+        #         self._first_gen[1].installSceneEventFilter(self)
     
     def explodeFamily(self, state):
         ''' Explodes the family be displaying all partners in this tree
@@ -485,6 +494,7 @@ class Family(qtw.QGraphicsObject):
         Args:
             state - boolean value indicating the display of all partners
         '''
+        ## TODO: this needs to be revisited 
         self._explode = state
         if not self._explode and self.scene():
             for char in self.partners:
@@ -530,6 +540,7 @@ class Family(qtw.QGraphicsObject):
 
 
     ## ------------------- WORKHORSE, DRAWING FUNCTIONS ------------------- ##
+    ## TODO: Aren't these set in preferences? Cause if so they should NOT be here
     FIXED_Y = 300 # mimic fixed/standardized character height?
     FIXED_X = 100 # mimic fixed image width
     DESC_DROPDOWN = 125
@@ -558,23 +569,22 @@ class Family(qtw.QGraphicsObject):
         offset_col = []
 
         root_node = self.tree.getRoot()
-        root_char = root_node.getData()
+        root_char = root_node.getChar()
         root_char.setPos(self._tree_loc)
         root_char.addYOffset(self.DESC_DROPDOWN)
         root_id = root_char.getID()
-        root_char.setTreePos(char_pos)
 
         # root relationships with no parent family
         if self._display_root_partner and self._first_gen[1]: 
             
-            num_partners = len(root_node.getMates())
+            num_partners = self.tree.getNumRelations(root_id, RELATIONSHIP.PARTNER)
 
             start_x = int(-(0.5 * (num_partners) * self.PARTNER_SPACING))
             midpoint = ((num_partners) * self.PARTNER_SPACING)/2
             
             # Add node to graph and queue
             root_char.addXOffset(start_x)
-            self.graph.add_vertex(root_id, root_char)
+            self.graph.addNode(root_id, root_char)
             q.insert(0, root_node)
 
             # Create fork and add to graph
@@ -582,8 +592,8 @@ class Family(qtw.QGraphicsObject):
             loc = qtc.QPointF()
             loc.setX(root_char.x())
             loc.setY(root_char.y() + self.DESC_DROPDOWN)
-            forkNode = Tree.Node(loc, current_height)
-            self.graph.add_vertex(current_fork, loc, False)
+            forkNode = TreeGraph.Node.invalidNode(data=loc, position=current_height)
+            self.graph.addNode(current_fork, loc, False)
             q.insert(0, forkNode)
             # print(f'Fork0 at {loc}')
 
@@ -596,44 +606,44 @@ class Family(qtw.QGraphicsObject):
             loc = qtc.QPointF()
             loc.setX(bottom_x_pos)
             loc.setY(root_char.y() + self.DESC_DROPDOWN)
-            forkNode = Tree.Node(loc, current_height)
-            self.graph.add_vertex(middle_fork, loc, False)
+            forkNode = TreeGraph.Node.invalidNode(data=loc, position=current_height)
+            self.graph.addNode(middle_fork, loc, False)
             q.insert(0, forkNode)
             # print(f'Midpoint at {loc}')
 
             self.graph.add_edge(middle_fork, f'fork{fork_counter}', self.FIXED_X)
             fork_counter += 1
 
-            for index, char in enumerate(root_node.getMates()):
+            for index, char in enumerate(self.tree.getRelations(root_id, RELATIONSHIP.PARTNER)):
                 offset = ((index + 1) * self.PARTNER_SPACING)
 
                 # Add node to graph and queue
-                char.getData().setX(root_char.x() + offset)
-                char.getData().setY(root_char.y())
-                self.graph.add_vertex(char.getData().getID(), char.getData())
+                char.setX(root_char.x() + offset)
+                char.setY(root_char.y())
+                self.graph.addNode(char.getID(), char)
 
 
                 # Create fork and add to graph
                 current_fork = f'fork{fork_counter}'
                 loc = qtc.QPointF()
-                loc.setX(char.getData().x())
-                loc.setY(char.getData().y() + self.DESC_DROPDOWN)
-                forkNode = Tree.Node(loc, current_height)
-                self.graph.add_vertex(current_fork, loc, False)
+                loc.setX(char.x())
+                loc.setY(char.y() + self.DESC_DROPDOWN)
+                forkNode = TreeGraph.Node.invalidNode(id=None, char=loc, pos=current_height, valid=False)
+                self.graph.addNode(current_fork, loc, False)
                 q.insert(0, forkNode)
                 # print(f'Fork1 at {loc}')
-                self.graph.add_edge(char.getData().getID(), current_fork, self.DESC_DROPDOWN)
-                self.graph.add_edge(middle_fork, current_fork, self.FIXED_X)
+                self.graph.addEdge(char.getID(), current_fork, self.DESC_DROPDOWN)
+                self.graph.addEdge(middle_fork, current_fork, self.FIXED_X)
                 fork_counter += 1
                 root_relationship_node = True
 
         elif self._explode and self._first_gen[1]:
-            self.graph.add_vertex(self._id, root_char)
+            self.graph.addNode(self._id, root_char)
             q.insert(0, self.tree.getRoot())
             root_relationship_node = True
 
         else:
-            self.graph.add_vertex(root_id, root_char)
+            self.graph.addNode(root_id, root_char)
             q.insert(0, self.tree.getRoot())
 
 
@@ -646,31 +656,29 @@ class Family(qtw.QGraphicsObject):
                 count -= 1
                 temp_node = q[-1] 
 
-                # print(f'{q.pop()}')
                 q.pop()
 
                 if isinstance(temp_node.getData(), Character):
                     offset_col.append(temp_node)
                 
-                if temp_node.getChildren() != []:
+                if num_children := self.tree.getNumRelations(temp_node.getID(), RELATIONSHIP.DESCENDANT):
                     parent_char = temp_node.getData()
                     
                     if temp_node is root_node and root_relationship_node:
                         parent_id = self._id
-                        parent_x = self.graph.get_vertex(parent_id).get_data().x()
+                        parent_x = self.graph.getNodeData(parent_id).x()
 
                     
-                    elif self._explode and temp_node.mates:
-                        # TODO: Only processes first partnership
-                        parent_id = temp_node.getPartnerships()[0][1]
-                        parent_x = self.graph.get_vertex(parent_id).get_data().x()
-                        # print(f'Parent: {parent_id} @ {parent_x}')
+                    # elif self._explode and temp_node.mates:
+                    #     # TODO: Only processes first partnership
+                    #     parent_id = temp_node.getPartnerships()[0][1]
+                    #     parent_x = self.graph.get_vertex(parent_id).get_data().x()
+                    #     # print(f'Parent: {parent_id} @ {parent_x}')
                                     
                     else:
                         parent_id = parent_char.getID()
                         parent_x = parent_char.x()
     
-                    num_children = len(temp_node.getChildren()) 
                     current_height = temp_node.getHeight() + 1
                     
                     ratio_mult = - ((0.5) * (num_children - 1))
@@ -680,17 +688,17 @@ class Family(qtw.QGraphicsObject):
                     loc = qtc.QPointF()
                     loc.setY(current_height * self.FIXED_Y + self._tree_loc.y())
 
-                    forkNode = Tree.Node(loc, current_height)
-                    self.graph.add_vertex(current_fork, loc, False)
+                    forkNode = TreeGraph.Node.invalidNode(data=loc, position=current_height)
+                    self.graph.addNode(current_fork, loc, False)
 
-                    self.graph.add_edge(parent_id, current_fork, self.FIXED_Y)
+                    self.graph.addEdge(parent_id, current_fork, self.FIXED_Y)
                     loc.setX(parent_x)
                     q.insert(0, forkNode)
                     fork_counter += 1
 
                     current_x_spacer = self.calcXSpacer(current_height, num_children)
 
-                    for index, child_node in enumerate(temp_node.getChildren()):
+                    for index, child_node in enumerate(self.tree.getRelationNodes(temp_node, RELATIONSHIP.DESCENDANT)):
                         newFork = f'fork{fork_counter}'
                         loc = qtc.QPointF()
                         
@@ -700,72 +708,73 @@ class Family(qtw.QGraphicsObject):
                         loc.setX(current_x)
                     
                         # Create Fork node and add to grid
-                        forkNode = Tree.Node(loc, current_height)
-                        self.graph.add_vertex(newFork, loc, False)
+                        forkNode = TreeGraph.Node.invalidNode(data=loc, position=current_height)
+                        self.graph.addNode(newFork, loc, False)
                         q.insert(0, forkNode)
                         previous_fork = f'fork{fork_counter-1}'
                         fork_counter += 1
 
                         # Set child and add to grid
                         child_char = child_node.getData()
-                        self.graph.add_vertex(child_char.getID(), child_char)
+                        child_id = child_char.getID()
+                        self.graph.addNode(child_id, child_char)
                         child_char.setX(current_x)
                         child_char.setY((current_height * self.FIXED_Y) + self._tree_loc.y())
                         child_char.addYOffset(self.DESC_DROPDOWN)
                         q.insert(0, child_node)
 
                         # Connect child to fork
-                        self.graph.add_edge(newFork, child_char.getID(), self.DESC_DROPDOWN)
-                        child_char.setTreePos(char_pos)
+                        self.graph.addEdge(newFork, child_id, self.DESC_DROPDOWN)
                         child_char.setParentID(parent_id)
 
                         if num_children % 2 != 0 and index == num_children // 2:
-                            self.graph.add_edge(current_fork, newFork, self.FIXED_Y)
+                            self.graph.addEdge(current_fork, newFork, self.FIXED_Y)
                             
                         else:
                             if index == num_children / 2 - 1:
                                 # ratio_mult += 1  # "skipping" 0 
-                                self.graph.add_edge(newFork, current_fork, self.DESC_DROPDOWN)
+                                self.graph.addEdge(newFork, current_fork, self.DESC_DROPDOWN)
                             
                             elif index == num_children / 2:
-                                self.graph.add_edge(newFork, current_fork, self.DESC_DROPDOWN)
+                                self.graph.addEdge(newFork, current_fork, self.DESC_DROPDOWN)
 
                         if index != 0:
-                            self.graph.add_edge(newFork, previous_fork, self.DESC_DROPDOWN)
+                            self.graph.addEdge(newFork, previous_fork, self.DESC_DROPDOWN)
                         
                         ratio_mult += 1
                         char_pos += 1
                         
-                        if self._explode and child_node.getMates() != []:
-                            num_partners = len(child_node.getMates())
+                        logging.warning('This needs to be redone. Must figure out how to handle partners')
+                        num_partners = self.tree.getNumRelations(child_id, RELATIONSHIP.PARTNER)
+                        if self._explode and num_partners:
                             start_x = 0
                             midpoint = ((num_partners) * self.PARTNER_SPACING)/2
                             bottom_x_pos = child_char.x() + midpoint
 
                             # Midpoint fork
                             # TODO: Only processes first partnership
-                            middle_fork = child_node.getPartnerships()[0][1]
+                            middle_fork = self.tree.getRelations(child_node, RELATIONSHIP.PARTNER)[0][1]
                             loc = qtc.QPointF()
                             loc.setX(bottom_x_pos)
                             loc.setY(child_char.y())
                             # print(f'Middle Fork: {middle_fork} @ {loc}')
-                            forkNode = Tree.Node(loc, current_height)
-                            self.graph.add_vertex(middle_fork, loc, False)
+                            forkNode = TreeGraph.Node.invalidNode(data=loc, position=current_height)
+                            self.graph.addNode(middle_fork, loc, False)
 
                             q.insert(0, forkNode)
-                            self.graph.add_edge(middle_fork, child_char.getID(), self.PARTNER_SPACING)
+                            self.graph.addEdge(middle_fork, child_id, self.PARTNER_SPACING)
 
-                            for index, char in enumerate(child_node.getMates()):
+                            for index, char in enumerate(self.tree.getRelations(child_id, RELATIONSHIP.PARTNER)):
                                 offset = start_x + ((index + 1) * self.PARTNER_SPACING)
 
                                  # Add node to graph and queue
-                                char.getData().setX(current_x)
-                                char.getData().setY(child_char.y())
-                                char.getData().addXOffset(offset)
-                                self.graph.add_vertex(char.getData().getID(), char.getData())
+                                char.setX(current_x)
+                                char.setY(child_char.y())
+                                char.addXOffset(offset)
+                                self.graph.addNode(char.getID(), char)
                                 # q.insert(0, char)
                                 # char_pos += 1
-                                self.graph.add_edge(char.getData().getID(), middle_fork, self.PARTNER_SPACING)
+                        #         self.graph.add_edge(char.getData().getID(), middle_fork, self.PARTNER_SPACING)
 
 
         # Only need to offset if large enough fam
@@ -777,7 +786,7 @@ class Family(qtw.QGraphicsObject):
             pivots.insert(0, 0)
 
             offset_col = [list(reversed(offset_col[pivots[i-1]:pivots[i]])) 
-                                if offset_col[pivots[i]].position==Tree.TreePos.RIGHT 
+                                if offset_col[pivots[i]].position==REL_TREE_POS.RIGHT 
                                 else offset_col[pivots[i-1]:pivots[i]] for i in range(1, len(pivots))]
             offset_col = [item for sublist in offset_col for item in sublist]
 
@@ -802,7 +811,7 @@ class Family(qtw.QGraphicsObject):
                     current_height = sibs[0].getHeight()
                     level_offset = 0
 
-                if sibs[0].position == Tree.TreePos.LEFT:
+                if sibs[0].position == REL_TREE_POS.LEFT:
                     if current_orientation > 0:
                         current_orientation = -1
                         level_offset = 0
@@ -825,7 +834,7 @@ class Family(qtw.QGraphicsObject):
                     offset_dict[node] += current_offset
                     
                     subtree = []
-                    node.getSubTree(subtree)
+                    self.tree.getSubTree(node, subtree)
                     for child in subtree:
                         offset_dict[child] += current_offset
 
@@ -880,22 +889,22 @@ class Family(qtw.QGraphicsObject):
         if root_node.getPartnerships():
             mid_points.add(self._id)
         for v in self.graph:
-            if v.is_valid(): # Character
-                for w in v.get_connections():
-                    if not w.is_valid() and w.get_id() not in mid_points: # Line
-                        if (v.get_weight(w) == self.PARTNER_SPACING):
+            if v.valid(): # Character
+                for w in self.graph.getConnections(v):
+                    if not w.valid() and w.getID() not in mid_points: # Line
+                        if (self.graph.getWeight(v, w) == self.PARTNER_SPACING):
                             mid = self.calcPartnerMidpoint(w)
-                            w.get_data().setX(mid)
-                            mid_points.add(w.get_id())
+                            w.getData().setX(mid)
+                            mid_points.add(w.getID())
                         else:
-                            w.get_data().setX(v.get_data().x())
+                            w.getData().setX(v.getData().x())
             else: # Line
-                for w in v.get_connections():
-                    if not w.is_valid(): # Line
-                        if isinstance(w.get_id(), uuid.UUID) and w.get_id() not in mid_points:
-                            v.get_data().setX(w.get_data().x())
-                        elif w.get_data().y() != v.get_data().y():
-                            w.get_data().setX(v.get_data().x())
+                for w in self.graph.getConnections(v):
+                    if not w.valid(): # Line
+                        if isinstance(w.getID(), uuid.UUID) and w.getID() not in mid_points:
+                            v.getData().setX(w.getData().x())
+                        elif w.getData().y() != v.getData().y():
+                            w.getData().setX(v.getData().x())
                         
 
 
@@ -906,9 +915,9 @@ class Family(qtw.QGraphicsObject):
         Args:
             vertex - the character with a partner
         '''
-        chars = [x for x in vertex.get_connections() if x.is_valid()]
-        char1 = chars[0].get_data()
-        char2 = chars[1].get_data()
+        chars = [x for x in self.graph.getConnections(vertex) if x.valid()]
+        char1 = chars[0].getData()
+        char2 = chars[1].getData()
 
         min_x = min(char1.x(), char2.x())
         del_x = abs(char1.x() - char2.x())
@@ -924,10 +933,10 @@ class Family(qtw.QGraphicsObject):
 
         # NOTE: Only place where pos is used to retrieve Vertex
         if not self._display_root_partner and self._explode and self._first_gen[1]: 
-            root_vertex = self.graph.get_vertex(self._id) # represents the root node
+            root_vertex = self.graph.getNode(self._id) # represents the root node
 
         else:
-            root_vertex = self.graph.get_vertex(self._first_gen[0].getID()) # represents the root node
+            root_vertex = self.graph.getNode(self._first_gen[0].getID()) # represents the root node
 
         visited = set()
         paths = set(frozenset())
@@ -942,29 +951,29 @@ class Family(qtw.QGraphicsObject):
         if self._display_root_partner and self._first_gen[1]:
             if self._first_gen not in self.filtered:
                 self._shape.addRect(self._first_gen[1].sceneBoundingRect())
-        if self._explode:
-            for char in self.partners:
-                if char not in self.filtered:
-                    self._shape.addRect(char.sceneBoundingRect())
+        # if self._explode:
+        #     for char in self.partners:
+        #         if char not in self.filtered:
+        #             self._shape.addRect(char.sceneBoundingRect())
 
         while q != []:
             s = q.pop(0)
-            for i in s.get_connections():
+            for i in self.tree.getConnections(s):
                 if i not in visited:
                     q.append(i)
                     visited.add(i)
                  # draw lines
                 if {i, s} not in paths:
-                    if s.is_valid():
-                        if i.is_valid(): # Character -> Character
-                            line = qtc.QLineF(s.get_data().pos(), i.get_data().pos())
+                    if s.valid():
+                        if i.valid(): # Character -> Character
+                            line = qtc.QLineF(s.getData().pos(), i.getData().pos())
                         else:   # Character -> Fork
-                            line = qtc.QLineF(s.get_data().pos(), i.get_data())
+                            line = qtc.QLineF(s.getData().pos(), i.getData())
                     else: 
                         if i.is_valid(): # Fork -> Character
-                            line = qtc.QLineF(s.get_data(), i.get_data().pos())
+                            line = qtc.QLineF(s.getData(), i.getData().pos())
                         else: # # Fork -> Fork
-                            line = qtc.QLineF(s.get_data(), i.get_data())
+                            line = qtc.QLineF(s.getData(), i.getData())
 
                     self._shape.moveTo(line.p1())
                     self._shape.lineTo(line.p2())
@@ -1032,6 +1041,4 @@ class Family(qtw.QGraphicsObject):
             return self._id == other._id
         else:
             return self is other
-
-
 

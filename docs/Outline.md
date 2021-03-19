@@ -1,4 +1,4 @@
-# Fantast Creator Code Outline
+# Fantasty Creator Code Outline
 
 ## Data
 
@@ -11,6 +11,8 @@
 #### `hashList.py`
 
 #### `treeStruct.py`
+
+### Data Storage
 
 ## Map
 

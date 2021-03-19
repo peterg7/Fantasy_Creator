@@ -7,6 +7,7 @@ from PyQt5 import QtPrintSupport as qps
 
 # Built-in Modules
 import types
+import logging
 
 # 3rd Party
 # from tinydb import where
@@ -15,8 +16,8 @@ import types
 from .mapBuilderGraphics import MapView
 from .mapBuilderUI import Ui_MapBuilderTab
 from .mapBuilderObjects import TimestampList
-from Mechanics.animator import AnimatorControlBar
-from Mechanics.storyTime import Time, TimeConstants
+from fantasycreator.Mechanics.animator import AnimatorControlBar
+from fantasycreator.Mechanics.storyTime import Time, TimeConstants
 
 # Create Map Tab
 class MapBuilderTab(qtw.QMainWindow, Ui_MapBuilderTab):
@@ -323,7 +324,7 @@ class MapBuilderTab(qtw.QMainWindow, Ui_MapBuilderTab):
     
 
     def build_map(self, database):
-        print('Building map...')
+        logging.debug('Building map...')
         self.mapview.connect_db(database)
         self.mapview.init_loc_dialogs()
         self.mapview.initTimestamps()
@@ -432,11 +433,11 @@ class MapBuilderTab(qtw.QMainWindow, Ui_MapBuilderTab):
     
     @qtc.pyqtSlot()
     def saveRequest(self):
-        print('Saving map...')
+        logging.debug('Saving map...')
         self.mapview.saveMap()
         self.mapview.saveEmbedded()
         
     
     @qtc.pyqtSlot()
     def preferenceUpdate(self):
-        print('Map: Received preference notification...')
+        logging.debug('Map: Received preference notification...')

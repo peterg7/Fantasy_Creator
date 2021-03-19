@@ -18,11 +18,6 @@ class TREE_ICON_DISPLAY(IntFlag):
     IMAGE = 8
     NAME = 9
 
-# @unique
-# class TIMELINE_ENTRY_TYPE(IntFlag):
-#     CHAR = 9
-#     EVENT = 10
-
 @unique
 class GROUP_SELECTION_ITEM(IntFlag):
     BASE = 10
@@ -39,8 +34,8 @@ class CHAR_TYPE(IntFlag):
 class FAM_TYPE(IntFlag):
     BASE = 16
     SUBSET = 17
-    NULL_TERM = 18
-    ENDPOINT = 19
+    SINGLETON = 18
+    NULL_TERM = 19
 
 @unique
 class SELECTIONS_UPDATE(IntFlag):
@@ -66,13 +61,35 @@ class EVENT_TYPE(IntFlag):
 
 @unique
 class LAUNCH_MODE(IntFlag):
-    OPEN_EXISTING = 33
-    NEW_STORY = 34
-    SAMPLE = 35
+    USER_SELECT = 33
+    OPEN_EXISTING = 34
+    NEW_STORY = 35
+    SAMPLE = 36
 
 @unique
 class DIRECTION(IntFlag):
-    UP = 36
-    DOWN = 37
-    LEFT = 38
-    RIGHT = 39
+    UP = 38
+    DOWN = 39
+    LEFT = 40
+    RIGHT = 41
+
+@unique
+class RELATIONSHIP(IntFlag):
+    DESCENDANT = 42
+    SIBLING = 43
+    PARENT = 44
+    PARTNER = 45
+
+@unique
+class REL_TREE_POS(IntFlag):
+    ''' Enum class to store the node's position relative to its parent (the
+    "middle" being num_siblings/2).
+    '''
+    LEFT = 46
+    RIGHT = 47
+    MIDDLE = 48
+
+    @classmethod
+    def exists(cls, value):
+        values = set(item.value for item in cls)
+        return value in values

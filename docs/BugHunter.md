@@ -169,18 +169,6 @@ This document is meant as a way to track currently unresolved bugs that are disc
 
 #### Working with new book
 
-- attempting to add a partner with 'Create New Character' causes crash (to a partner with or without offspring):
-
-  ```bash
-  Traceback (most recent call last):
-    File "/Users/petergish/Nucleus/CSProjects/FantasyCreator/fantasycreator/Tree/tree.py", line 574, in addNewCharacter
-      parent = self.requestCharacter('Please select a parent')
-    File "/Users/petergish/Nucleus/CSProjects/FantasyCreator/fantasycreator/Tree/tree.py", line 960, in requestCharacter
-      prompt.move(self.width()/2, 0)
-  AttributeError: 'Tree' object has no attribute 'width'
-  [1]    42313 abort      python -u 
-  ```
-
 - removing first character with no other character created causes crash:
 
   ```bash
@@ -195,7 +183,7 @@ This document is meant as a way to track currently unresolved bugs that are disc
   ```
 
 - editing crown status does not display until toggling 'Show Rulers'
-- race case of requesting user to select a character
+- race case of requesting user to select
 
 ## Millipede *(timeline bugs)*
 

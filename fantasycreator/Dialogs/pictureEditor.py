@@ -6,7 +6,7 @@ from PyQt5 import QtGui as qtg
 from PyQt5 import QtCore as qtc
 
 # User-defined modules
-from Mechanics.flags import EVENT_TYPE
+from fantasycreator.Mechanics.flags import EVENT_TYPE
 
 
 class PictureLineEdit(qtw.QLineEdit):

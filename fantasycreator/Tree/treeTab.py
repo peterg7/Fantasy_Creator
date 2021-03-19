@@ -21,14 +21,13 @@ from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
 # Built-in Modules
-import uuid
+import logging
 
 # User-defined Modules
 from .treeGraphics import TreeView
 from .tree import Tree
-from Data.characterLookup import LookUpTableView
-from Mechanics.controlPanel import ControlPanel
-
+from fantasycreator.Data.characterLookup import LookUpTableView
+from fantasycreator.Mechanics.controlPanel import ControlPanel
 
 # Create Tree tab 
 class TreeTab(qtw.QMainWindow):
@@ -118,7 +117,7 @@ class TreeTab(qtw.QMainWindow):
             'Remove Entry'
         )
         self.del_char_act.setShortcut(qtc.Qt.Key_Backspace)
-        self.del_char_act.triggered.connect(lambda: print('In Construction!'))
+        self.del_char_act.triggered.connect(lambda: logging.info('In Construction!'))
 
         self.add_del_separator.setVisible(False)
         self.del_char_act.setVisible(False)
@@ -260,9 +259,11 @@ class TreeTab(qtw.QMainWindow):
 
     @qtc.pyqtSlot()
     def saveRequest(self):
-        print('Saving tree...')
+        # print('Saving tree...')
+        logging.debug('Saving tree...')
     
     @qtc.pyqtSlot()
     def preferenceUpdate(self):
-        print('Tree: Received preference notification...')
+        # print('Tree: Received preference notification...')
+        logging.debug('Received preference notification...')
         self.tree.updatePreferences()

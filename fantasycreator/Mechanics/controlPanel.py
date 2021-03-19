@@ -8,7 +8,7 @@ from PyQt5 import QtCore as qtc
 import sys
 
 # User-defined Modules
-import Mechanics.flags as flags
+import fantasycreator.Mechanics.flags as flags
 
 # Create Control widget
 class ControlPanel(qtw.QDockWidget):

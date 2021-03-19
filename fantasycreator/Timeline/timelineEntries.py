@@ -8,9 +8,9 @@ from PyQt5 import QtGui as qtg
 import uuid
 
 # User-defined Modules
-from Mechanics.materializer import Materializer
-from Mechanics.storyTime import TimeConstants, Time, DateLineEdit
-from Mechanics.flags import EVENT_TYPE, DIRECTION
+from fantasycreator.Mechanics.materializer import Materializer
+from fantasycreator.Mechanics.storyTime import TimeConstants, Time, DateLineEdit
+from fantasycreator.Mechanics.flags import EVENT_TYPE, DIRECTION
 
 class TimelineEntry(qtw.QGraphicsWidget):
 

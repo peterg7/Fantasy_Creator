@@ -9,16 +9,17 @@ from tinydb import where
 
 # Built-in Modules
 import uuid
+import logging
 
 # User-defined Modules
 from .timelineEntries import TimelineCharEntry, MainTimelineAxis, TimelineEntry
 from .timelineEntries import TimelineEventEntry, EntryView, EventCreator
-from Tree.treeAccessories import CharacterView, CharacterCreator
-from Data.hashList import HashList
-from Data.database import DataFormatter
-from Mechanics.materializer import Materializer
-from Mechanics.storyTime import TimeConstants, Time
-from Mechanics.flags import EVENT_TYPE, DIRECTION
+from fantasycreator.Tree.treeAccessories import CharacterView, CharacterCreator
+from fantasycreator.Data.hashList import HashList
+from fantasycreator.Data.database import DataFormatter
+from fantasycreator.Mechanics.materializer import Materializer
+from fantasycreator.Mechanics.storyTime import TimeConstants, Time
+from fantasycreator.Mechanics.flags import EVENT_TYPE, DIRECTION
 
 # create Timeline view
 class TimelineView(qtw.QGraphicsView):
@@ -51,7 +52,7 @@ class TimelineView(qtw.QGraphicsView):
     EventList = HashList() # Stores all EVENT ENTRY objects
 
     def __init__(self, parent=None):
-        print('Initializing timeline...')
+        logging.debug('Initializing timeline...')
         super(TimelineView, self).__init__(parent)
         self.scene = TimelineScene(self)
         self.setScene(self.scene)
@@ -99,7 +100,7 @@ class TimelineView(qtw.QGraphicsView):
         self.build_timeline()
 
     def build_timeline(self):
-        print('Building timeline...')
+        logging.debug('Building timeline...')
         y_spacing = TimelineCharEntry.ENTRY_HEIGHT + TimelineView.ENTRY_SPACING
         current_family = None
         rom_id = None

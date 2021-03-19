@@ -13,7 +13,7 @@ import uuid
 from threading import Lock
 
 # User-defined Modules
-from Mechanics.storyTime import TimeConstants, Time
+from fantasycreator.Mechanics.storyTime import TimeConstants, Time
 
 
 class Materializer():
@@ -36,6 +36,7 @@ class Materializer():
 
     mutex = Lock()
 
+    @staticmethod
     def build(params):
         time_pad = params.get('timeline_padding', None)
         if time_pad:
@@ -52,13 +53,12 @@ class Materializer():
         
         Materializer.updateConstants()
     
-
+    @staticmethod
     def updateConstants():
         Materializer.mutex.acquire()
         Materializer.TOTAL_DAYS = ((TimeConstants.MAX_DAY - TimeConstants.MIN_DAY) *  
                         (TimeConstants.MAX_MONTH - TimeConstants.MIN_MONTH) *  
                         (TimeConstants.MAX_YEAR - TimeConstants.MIN_YEAR))
-        
 
         Materializer.TOTAL_TIME_PIXELS = (Materializer.TIMELINE_COORDS_BOUNDS[2] 
                                     - Materializer.TIMELINE_COORDS_BOUNDS[0])

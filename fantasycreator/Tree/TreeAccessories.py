@@ -22,6 +22,7 @@ from PyQt5 import QtCore as qtc
 
 # Built-in Modules
 import re
+import logging
 
 # 3rd Party
 from tinydb import where
@@ -29,13 +30,14 @@ from tinydb import where
 # User-defined Modules
 # from .treeGraphics import TreeView
 from .character import Character
-from Mechanics.flags import CHAR_TYPE
-from Dialogs.pictureEditor import PictureEditor, PictureLineEdit
-from Mechanics.flags import TREE_ICON_DISPLAY, EVENT_TYPE
-from Mechanics.storyTime import Time, DateLineEdit
+from fantasycreator.Mechanics.flags import CHAR_TYPE
+from fantasycreator.Dialogs.pictureEditor import PictureEditor, PictureLineEdit
+from fantasycreator.Mechanics.flags import TREE_ICON_DISPLAY, EVENT_TYPE
+from fantasycreator.Mechanics.storyTime import Time, DateLineEdit
+
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 class PartnerSelect(qtw.QDialog):
     ''' Simple dialog window asking the user to pick from existing characters
@@ -435,6 +437,7 @@ class CharacterCreator(qtw.QDialog):
 
         self.RULER_PIC = qtg.QPixmap(Character.RULER_PIC_PATH)
         self._id = 0
+        self.disabled_entries = []
 
         layout = qtw.QFormLayout()
 
@@ -473,14 +476,14 @@ class CharacterCreator(qtw.QDialog):
         self.kingdom_select.model().item(0).setEnabled(False)
 
 
-        self.on_ruler_change(self.ruler.checkState())
+        self.onRulerChange(self.ruler.checkState())
 
         # Connect signals
-        self.sex_selection.currentTextChanged.connect(self.on_sex_change)
-        self.race_selection.currentTextChanged.connect(self.on_race_change)
-        self.family_select.currentTextChanged.connect(self.on_fam_change)
-        self.kingdom_select.currentTextChanged.connect(self.on_kingdom_change)
-        self.ruler.stateChanged.connect(self.on_ruler_change)
+        self.sex_selection.currentTextChanged.connect(self.onSexChange)
+        self.race_selection.currentTextChanged.connect(self.onRaceChange)
+        self.family_select.currentTextChanged.connect(self.onFamChange)
+        self.kingdom_select.currentTextChanged.connect(self.onKingdomChange)
+        self.ruler.stateChanged.connect(self.onRulerChange)
         self.picture_path.clicked.connect(self.getPic)
 
         self.submit_btn = qtw.QPushButton(
@@ -617,11 +620,11 @@ class CharacterCreator(qtw.QDialog):
         )
         if filename:
             self.picture_dialog = PictureEditor(filename, EVENT_TYPE.CHAR, self)
-            self.picture_dialog.submitted.connect(self.store_new_pic)
+            self.picture_dialog.submitted.connect(self.storeNewPic)
             self.picture_dialog.show()
 
     @qtc.pyqtSlot(str, qtg.QPixmap)
-    def store_new_pic(self, filename, pix):
+    def storeNewPic(self, filename, pix):
         ''' Stores a newly selected picture in this object
 
         Args:
@@ -632,7 +635,7 @@ class CharacterCreator(qtw.QDialog):
         self.picture.setPixmap(pix)
     
     @qtc.pyqtSlot(str)
-    def on_kingdom_change(self, text):
+    def onKingdomChange(self, text):
         ''' Simple callback to examine user's selection for kingdom. Prompts for
         a new option if necessary.
 
@@ -649,7 +652,7 @@ class CharacterCreator(qtw.QDialog):
                 self.kingdom_select.setCurrentIndex(0)
     
     @qtc.pyqtSlot(str)
-    def on_fam_change(self, text):
+    def onFamChange(self, text):
         ''' Simple callback to examine user's selection for family. Prompts for
         a new option if necessary.
 
@@ -666,7 +669,7 @@ class CharacterCreator(qtw.QDialog):
                 self.family_select.setCurrentIndex(0)
 
     @qtc.pyqtSlot(str)
-    def on_race_change(self, text):
+    def onRaceChange(self, text):
         ''' Simple callback to examine user's selection for race. Prompts for
         a new option if necessary.
 
@@ -683,7 +686,7 @@ class CharacterCreator(qtw.QDialog):
                 self.race_selection.setCurrentIndex(0)
     
     @qtc.pyqtSlot(str)
-    def on_sex_change(self, text):
+    def onSexChange(self, text):
         ''' Simple callback to examine user's selection for sex. Prompts for
         a new option if necessary.
 
@@ -700,7 +703,7 @@ class CharacterCreator(qtw.QDialog):
                 self.sex_selection.setCurrentIndex(0)
     
     @qtc.pyqtSlot(int)
-    def on_ruler_change(self, ruler):
+    def onRulerChange(self, ruler):
         ''' Simple callback to examine state of ruler button. 
 
         Args: 
@@ -710,6 +713,12 @@ class CharacterCreator(qtw.QDialog):
             self.ruler_picture.setPixmap(self.RULER_PIC)
         else:
             self.ruler_picture.clear()
+    
+    def fixedFamEntry(self, fam_name):
+        self.family_select.setCurrentText(fam_name)
+        index = self.family_select.currentIndex()
+        self.family_select.setEnabled(False)
+        self.disabled_entries.append('family_select')
 
     def onSubmit(self):
         ''' Callback for the submit button on the dialog. Packages all stored
@@ -756,13 +765,17 @@ class CharacterCreator(qtw.QDialog):
         if selectedRace == 'Select Race':
             selectedRace = ''
         self._char['race'] = selectedRace
-        self.close()
+        self.closeDialog()
         self.submitted.emit(self._char)
         
     def keyPressEvent(self, event):
         if event.key() == qtc.Qt.Key_Escape:
-            self.close()
+            self.closeDialog()
         super(CharacterCreator, self).keyPressEvent(event)
 
+    def closeDialog(self):
+        for entry in self.disabled_entries:
+            getattr(self, entry).setEnabled(True)
+        self.close()
 
 

@@ -28,11 +28,11 @@ import uuid
 import datetime
 
 # User-defined Modules
-from Mechanics.flags import TREE_ICON_DISPLAY, EVENT_TYPE
-from Mechanics.storyTime import Time, DateLineEdit
+from fantasycreator.Mechanics.flags import TREE_ICON_DISPLAY, EVENT_TYPE
+from fantasycreator.Mechanics.storyTime import Time, DateLineEdit
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 
 class Character(qtw.QGraphicsWidget):
@@ -74,24 +74,24 @@ class Character(qtw.QGraphicsWidget):
         self.setCursor(qtc.Qt.PointingHandCursor)
         self.setZValue(2)
 
-        # Character properties - member variables
-        self.uniq_id = char_id    
-        self.tree_id = None
-        self.name = ''
-        self.parent_0 = None
-        self.parent_1 = None
-        self.tree_pos = None
-        self.ruler = False
-        self.picture_loc = ''
+        # Character properties - member variables (data that will be stored)
+        self.uniq_id = char_id  # unique id of this character  
+        self.tree_id = None     # unique id of the tree this character is in
+        self.fam_id = None      # unique id of the tree this character belongs by blood
+        self.name = ''          # name of this character
+        self.parent_0 = None    # first parent of this character
+        self.parent_1 = None    # second parent of this character
+        self.ruler = False      # binary flag indicating if this character is a ruler
+        self.picture_loc = ''   # string path to the location of this character's image
+        self.img = None         # QImage representation of the character's image
 
-        self.ruler_display_flag = True
-        self.current_display_mode = TREE_ICON_DISPLAY.IMAGE
-
-        self.pixmap = None
-        self.img = None
-        self.img_ruler_pixmap = None
-        self.name_ruler_pixmap = None
-        self.offset = (0, 0)
+        # Additional member variables
+        self.pixmap = None      # pixmap of the image in self.picture_loc
+        self.img_ruler_pixmap = None    # pixmap of the character's image with a crown
+        self.name_ruler_pixmap = None   # pixmap of the character's name with a crown
+        self.ruler_display_flag = True  # binary flag dictating if rulers should be drawn with crowns
+        self.current_display_mode = TREE_ICON_DISPLAY.IMAGE # binary flag controlling display (image vs. name)
+        self.offset = (0, 0)    # stores the current offset of this character depending on image size
 
         # Setup graphics
         self.setX(x_pos)
@@ -100,6 +100,7 @@ class Character(qtw.QGraphicsWidget):
         self.display_font.setPointSize(40)
         self.display_font.setWeight(qtg.QFont.DemiBold)
 
+        ## Add buttons that outline the character in the tree
         self.add_desc = qtw.QPushButton(
             '+',
             clicked=lambda: self.parent().add_descendant.emit(self.uniq_id)
@@ -213,13 +214,12 @@ class Character(qtw.QGraphicsWidget):
         if not self.uniq_id:
             self.uniq_id = uuid.uuid4()
         self.tree_id = dictionary.get('tree_id', self.tree_id)
+        self.fam_id = dictionary.get('fam_id', self.fam_id)
         self.name = dictionary.get('name', self.name)
         ruler_input = dictionary.get('ruler', self.ruler)
         self.parent_0 = dictionary.get('parent_0', self.parent_0)
         self.parent_1 = dictionary.get('parent_1', self.parent_1)
-        self.tree_pos = dictionary.get('tree_pos', self.tree_pos)
         if img := dictionary.get('__IMG__', None):
-            # print('Using img')
             if isinstance(img, qtg.QImage):
                 self.pixmap = qtg.QPixmap.fromImage(img)
             else: # Assume instance of QPixmap
@@ -243,6 +243,7 @@ class Character(qtw.QGraphicsWidget):
         char_dict = {}
         char_dict['char_id'] = self.uniq_id
         char_dict['tree_id'] = self.tree_id
+        char_dict['fam_id'] = self.fam_id
         char_dict['name'] = self.name
         char_dict['ruler'] = self.ruler
         char_dict['parent_0'] = self.parent_0
@@ -427,9 +428,6 @@ class Character(qtw.QGraphicsWidget):
 
     ## Accessors and Mutators ##
 
-    def setTreePos(self, pos):
-        self.tree_pos = pos
-    
     def setParentID(self, char_id, parent_index=0):
         if not parent_index:
             self.parent_0 = char_id
@@ -438,9 +436,9 @@ class Character(qtw.QGraphicsWidget):
     
     def setTreeID(self, tree_id):
         self.tree_id = tree_id
-
-    # def setRomanceID(self, rom_id):
-    #     self.romance_id = rom_id
+    
+    def setFamID(self, fam_id):
+        self.fam_id = fam_id
 
     def getName(self):
         return self.name
@@ -451,10 +449,11 @@ class Character(qtw.QGraphicsWidget):
     def getID(self):
         return self.uniq_id
     
-    # def getRomanceID(self):
-    #     return self.romance_id
     def getTreeID(self):
         return self.tree_id
+
+    def getFamID(self):
+        return self.fam_id
 
     def getWidth(self):
         return self.current_pixmap.width()
@@ -537,7 +536,7 @@ class Character(qtw.QGraphicsWidget):
     ## Operator Overloads ##
 
     def __str__(self):
-        return self.name
+        return str(self.toDict())
     
     def __repr__(self):
         return self.uniq_id

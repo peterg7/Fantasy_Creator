@@ -4,11 +4,14 @@ from PyQt5 import QtWidgets as qtw
 from PyQt5 import QtCore as qtc
 from PyQt5 import QtGui as qtg
 
+# Built-in Modules
+import logging
+
 # User-defined Modules
 from .timelineGraphics import TimelineView
-from Data.characterLookup import LookUpTableView
+from fantasycreator.Data.characterLookup import LookUpTableView
 
-# craete Timeline scene
+# create Timeline scene
 class TimelineTab(qtw.QMainWindow):
 
     timeline_loaded = qtc.pyqtSignal()
@@ -171,9 +174,9 @@ class TimelineTab(qtw.QMainWindow):
     
     @qtc.pyqtSlot()
     def saveRequest(self):
-        print('Saving timeline...')
+        logging.debug('Saving timeline...')
     
     @qtc.pyqtSlot()
     def preferenceUpdate(self):
-        print('Timeline: Received preference notification...')
+        logging.debug('Received preference notification...')
     

@@ -5,8 +5,8 @@ from PyQt5.QtCore import QPointF, QRectF
 import uuid
 
 # User-defined modules
-from storyTime import Time
-from database import VolatileDB
+from Mechanics.storyTime import Time
+from Data.database import VolatileDB
 # BREAK
 
 db = VolatileDB('sample_1.json')
@@ -18,10 +18,9 @@ meta_db.insert( # Holds meta data regarding this project
         'book_title': 'Sample Book Title',
         'world_name': 'Sample World',
         'NULL_ID': uuid.UUID('4d78932d2af949fd8bb54dba3d9c9db6'),
-        'TERM_ID': uuid.UUID('ccebb29b98054cd7bfa76135604fa96c'),
         'world_name': 'Sample World',
         'map_path': ':/sample-images/sample_map.png',
-        '__IMG__': ''
+        '__IMG__': '' # stores map image
     } # Maybe add some sort of month as words?
 )
 
@@ -30,8 +29,7 @@ preferences_db.insert_multiple([
     {
         'tab': 'general',
         'book_title': 'Sample Book Title',
-        'world_name': 'Sample World',
-        'char_img_size': [125, 125]
+        'world_name': 'Sample World'
     },
     {
         'tab': 'mechanics',

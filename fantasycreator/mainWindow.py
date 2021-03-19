@@ -56,31 +56,33 @@ from fractions import Fraction
 import math
 import datetime
 import uuid
+import logging
+import logging.config
 
 # 3rd party
 import numpy as np
 from tinydb import where
 
 # User-defined Modules
-from Tree.treeTab import TreeTab
-from Tree.character import Character
-from Tree.family import Family
-from Timeline.timelineTab import TimelineTab
-from Map.mapBuilderTab import MapBuilderTab
-from Scroll.scrollTab import ScrollTab
-from Data.database import VolatileDB
-from Data.characterLookup import LookUpTableModel, LookUpTableView
-from Dialogs.aboutWindow import AboutWindow
-from Dialogs.bugReporter import BugReporter
-from Dialogs.welcomeWindow import WelcomeWindow
-from Dialogs.preferencesWindow import PreferencesWindow
-from Mechanics.separableTabs import DetachableTabWidget
-from Mechanics.materializer import Materializer
-from Mechanics.storyTime import TimeConstants, Time
-from Mechanics.flags import LAUNCH_MODE
+from fantasycreator.Mechanics.storyTime import TimeConstants, Time
+from fantasycreator.Mechanics.materializer import Materializer
+from fantasycreator.Tree.treeTab import TreeTab
+from fantasycreator.Tree.character import Character
+from fantasycreator.Tree.family import Family
+from fantasycreator.Timeline.timelineTab import TimelineTab
+from fantasycreator.Map.mapBuilderTab import MapBuilderTab
+from fantasycreator.Scroll.scrollTab import ScrollTab
+from fantasycreator.Data.database import VolatileDB
+from fantasycreator.Data.characterLookup import LookUpTableModel, LookUpTableView
+from fantasycreator.Dialogs.aboutWindow import AboutWindow
+from fantasycreator.Dialogs.bugReporter import BugReporter
+from fantasycreator.Dialogs.welcomeWindow import WelcomeWindow
+from fantasycreator.Dialogs.preferencesWindow import PreferencesWindow
+from fantasycreator.Mechanics.separableTabs import DetachableTabWidget
+from fantasycreator.Mechanics.flags import LAUNCH_MODE
 
 # External resources
-from resources import resources
+from fantasycreator.resources import resources
 
 # create main window class
 class MainWindow(qtw.QMainWindow):
@@ -117,10 +119,38 @@ class MainWindow(qtw.QMainWindow):
     def __init__(self, args):
         '''MainWindow constructor'''
         super().__init__()
+ 
+        # Initialize logging
+        logging.config.fileConfig('./logs/logging.conf')
+        logger = logging.getLogger() # instance of root logger
 
-        self.filename = None
-        if args and qtc.QFileInfo(args[1]):
-            self.filename = args[1]
+        self.verbose = args['verbose']
+        if self.verbose:
+            logger.info('Permanently in verbose mode currently!')
+        else:
+            logger.info('Apologies, application can only run verbosely')
+
+        # self.launch_mode = LAUNCH_MODE.USER_SELECT
+        ## TODO: REMOVE THIS SIMPLY FOR DEV
+        self.launch_mode = LAUNCH_MODE.NEW_STORY
+        self.filename = args['open']
+        if self.filename:
+            if qtc.QFileInfo(self.filename):
+                self.launch_mode = LAUNCH_MODE.OPEN_EXISTING
+                logger.info(f'Opening {self.filename}')
+            else:
+                logger.error(f'Could not open {self.filename}')
+
+        if mode := args['mode']:
+            if mode == 'new':
+                self.launch_mode = LAUNCH_MODE.NEW_STORY
+                logger.info(f'Launching application with a new story')
+            elif mode.startsWith('sample'):
+                self.launch_mode = LAUNCH_MODE.SAMPLE
+                logger.info(f'Launch sample story')
+            else:
+                logger.error(f'Unrecognized option for application mode')
+
 
         # Setup + layout
         # self.resize(qtc.QSize(self.SCREEN_WIDTH, self.SCREEN_HEIGHT))
@@ -138,9 +168,11 @@ class MainWindow(qtw.QMainWindow):
 
         # Center the application
         self.move(qtw.QApplication.desktop().screen().rect().center() - self.frameGeometry().center())
-        self.initial_boot = True
-        if not self.filename:
-            
+
+        # Handle potential command line arguments
+        if self.launch_mode == LAUNCH_MODE.OPEN_EXISTING:
+            self.setup(LAUNCH_MODE.OPEN_EXISTING, self.filename)
+        elif self.launch_mode == LAUNCH_MODE.USER_SELECT:
             # Welcome Window
             self.welcomeWindow = WelcomeWindow(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, self)
             self.loading_progress.connect(self.welcomeWindow.incrementProgressBar)
@@ -149,18 +181,20 @@ class MainWindow(qtw.QMainWindow):
             self.welcomeWindow.new_book.connect(lambda: self.setup(LAUNCH_MODE.NEW_STORY))
             self.welcomeWindow.open_sample.connect(lambda: self.setup(LAUNCH_MODE.SAMPLE))
 
-            self.requireSaveAs = True
-        
         else:
-            self.initial_boot = False
-            self.requireSaveAs = False
-            self.setup(LAUNCH_MODE.OPEN_EXISTING, self.filename)
+            self.setup(self.launch_mode)
+
+        self.requireSaveAs = True
 
     def moduleLoaded(self):
         self.loading_progress.emit()
 
 
     def setup(self, mode, arg=None):
+        # Necessary constants for init of tabs
+        TimeConstants.updateConstants()
+        Materializer.updateConstants()
+
         # Declare tabs
         self.tabs = DetachableTabWidget(self)
         self.moduleLoaded()
@@ -308,8 +342,6 @@ class MainWindow(qtw.QMainWindow):
             self.cleanBoot()
 
     def initUI(self):
-        if self.initial_boot:
-            self.welcomeWindow.close()
         self.show()
         self.setWindowState(qtc.Qt.WindowMaximized)
         self.setMaximumSize(self.size())
@@ -333,11 +365,9 @@ class MainWindow(qtw.QMainWindow):
         self.initMaterializer()
         self.initDatabase()
         null_id = uuid.uuid4()
-        termination_id = uuid.uuid4()
         self.meta_db = self.database.table('meta')
         self.meta_db.insert(
-            {'NULL_ID': null_id,
-            'TERM_ID': termination_id}
+            {'NULL_ID': null_id}
         )
         self.families_db = self.database.table('families')
         self.families_db.insert({'fam_id': null_id, 'fam_name': 'None'})
@@ -367,7 +397,7 @@ class MainWindow(qtw.QMainWindow):
                     'year_format': time_record['year_format']
                 }
             )
-
+            
     def initMaterializer(self):
         materializer_params = {}
         if timeline_record := self.preferences_db.get(where('tab') == 'timeline'):
@@ -534,15 +564,14 @@ class MainWindow(qtw.QMainWindow):
         model = family_select.model()
         index = 0
         for fam in self.families_db:
-            if fam['fam_id'] == NULL_ID:
-                continue
-            family_select.addItem(fam['fam_name'])
-            item = family_select.model().item(index)
-            item.setCheckable(True)
-            model.setData(model.index(index, 0),
-                            qtc.Qt.Checked,
-                            qtc.Qt.CheckStateRole)
-            index += 1
+            if fam['fam_id'] != NULL_ID:
+                family_select.addItem(fam['fam_name'])
+                item = family_select.model().item(index)
+                item.setCheckable(True)
+                model.setData(model.index(index, 0),
+                                qtc.Qt.Checked,
+                                qtc.Qt.CheckStateRole)
+                index += 1
         family_select.blockSignals(False)
 
         # Update kingdoms
@@ -743,22 +772,42 @@ class MainWindow(qtw.QMainWindow):
 
 
 # Non-bundled execution
-if __name__ == '__main__':
-    parser = qtc.QCommandLineParser()
+# if __name__ == '__main__':
+#     parser = qtc.QCommandLineParser()
     
-    # qtw.QApplication.setAttribute(qtc.Qt.AA_EnableHighDpiScaling)
-    app = qtw.QApplication(sys.argv)
-    app.setApplicationName('Fantasy Creator')
-    app.setApplicationVersion('0.1')
+#     # qtw.QApplication.setAttribute(qtc.Qt.AA_EnableHighDpiScaling)
+#     app = qtw.QApplication(sys.argv)
+#     app.setApplicationName('Fantasy Creator')
+#     app.setApplicationVersion('1.1')
     
+#     # set up command line argument parser
+#     parser.setApplicationDescription('GUI to create fantastical stories!')
+#     parser.addHelpOption()
+#     parser.addVersionOption()
 
-    parser.setApplicationDescription('GUI to create fantastical stories!')
-    parser.addPositionalArgument("open", qtc.QCoreApplication.translate("main", "A file to open."))
-    
-    parser.process(app)
-    args = parser.positionalArguments()
+#     # define arguments
+#     # parser.addPositionalArgument("open", qtc.QCoreApplication.translate("MainWindow", "An existing .story file to open."))
+#     existing = qtc.QCommandLineOption(["o", "open"], qtc.QCoreApplication.translate("MainWindow", "Open an existing .story <file>"), 
+#                 qtc.QCoreApplication.translate("MainWindow", "file"))
+#     parser.addOption(existing)
 
-    #app.setStyle(qtw.QStyleFactory.create('Fusion'))
-    mw = MainWindow(args)
-    app.aboutToQuit.connect(mw.clean_up)
-    sys.exit(app.exec())
+#     verbose = qtc.QCommandLineOption("verbose", qtc.QCoreApplication.translate("MainWindow", "Run in verbose mode."))
+#     parser.addOption(verbose)
+
+#     dev_mode = qtc.QCommandLineOption(["m", "mode"], 
+#                 qtc.QCoreApplication.translate("MainWindow", "Skip welcome window and use provided launch <option>.\n - 'new' launch a new instance. \n - 'sample(x)' launch sample x."),
+#                 qtc.QCoreApplication.translate("MainWindow", "option"))
+#     parser.addOption(dev_mode)
+    
+#     parser.process(app)
+    
+#     args = {
+#         'open': parser.value(existing),
+#         'mode': parser.value(dev_mode),
+#         'verbose': parser.isSet(verbose)
+#     }
+
+#     #app.setStyle(qtw.QStyleFactory.create('Fusion'))
+#     mw = MainWindow(args)
+#     app.aboutToQuit.connect(mw.clean_up)
+#     sys.exit(app.exec())

@@ -13,7 +13,7 @@ import numpy as np
 from tinydb import where
 
 # User-defined Modules
-from Tree.character import Character
+from fantasycreator.Tree.character import Character
 
 
 # Create Look Up table view
@@ -134,7 +134,7 @@ class LookUpTableModel(qtc.QAbstractTableModel):
         )
         for char_id in newChars:
             char_record = self.character_db.get(where('char_id') == char_id)
-
+            
             # Need to access families db
             if 'family' in self.char_keys:
                 if self.families_db.contains(where('fam_id') == char_record['fam_id']):
