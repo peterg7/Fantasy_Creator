@@ -43,7 +43,6 @@ from fantasycreator.Dialogs.messageBoxes import CustomMsgBox, AutoCloseMsgBox
 from fantasycreator.Dialogs.lineInputs import UserLineInput, UserSelectInput
 from fantasycreator.Dialogs.pictureEditor import PictureEditor
 import fantasycreator.Mechanics.flags as flags
-from fantasycreator.Data.graphStruct import Graph
 from fantasycreator.Data.hashList import HashList
 from fantasycreator.Data.database import DataFormatter
 

@@ -138,12 +138,8 @@ class TreeGraph:
                 return (f'NODE: {self.data.__str__()}')
             else:
                 return self
-        
-        @staticmethod
-        def invalidNode(data, position):
-            node = Node(_id=None, data=data, pos=position, valid=False)
-            return node
-    
+
+    ## ---------------- treeGraph Definitions -------------------- ##
 
     def __init__(self, root=None):
         self.graph = Graph()
@@ -221,7 +217,7 @@ class TreeGraph:
             return True
         return False
 
-
+    # FIXME
     def addParent(self, parent, child=None):
         logging.fatal("Currently under construction")
         ## Old implementation
@@ -271,6 +267,11 @@ class TreeGraph:
     def getFamHead(self):
         return self.root.getData()
 
+    def getRelationship(self, node1, node2):
+        return self.graph.edge(node1, node2)
+    
+    def getRelationsNode(self, node, relation):
+        return [y for x, y, z in self.graph.edges(from_node=node) if z == 3]
 
     def getNumRelations(self, node_id, relation):
         return len([n for n in self.graph.edges(from_node=node_id) if n[2] == relation])
@@ -283,9 +284,18 @@ class TreeGraph:
     def getRelations(self, node_id, relation):
         return [self.graph.node(n[1]).getData() for n in self.graph.edges(from_node=node_id) 
                 if n[2] == relation]
+
+    def getGraphNodes(self):
+        return [(k, self.graph.node(k)) for k in self.graph.to_dict().keys()]
     
+    def getGraphEdges(self):
+        return self.graph.edges()
+
     def getFamily(self):
         return [self.graph.node(n[1]).getData() for n in self.nodes()]
 
-
+    @staticmethod
+    def invalidNode(data, pos):
+        node = TreeGraph.Node(_id=None, data=data, pos=pos, valid=False)
+        return node
 

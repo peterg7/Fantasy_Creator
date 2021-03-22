@@ -50,7 +50,7 @@ class DisplayGraph:
         new_node = self.Node(_id, data, valid)
         self.graph.add_node(_id, new_node)
     
-    def addEdge(self, node1, node2, cost = 0):
+    def addEdge(self, node1, node2, wt=0):
         if not isinstance(node1, uuid.UUID):
             node1 = node1.getID()
 
@@ -60,7 +60,7 @@ class DisplayGraph:
         if not node1 or not node2:
             return False
         
-        self.graph.add_edge(node1, node2, cost, True)
+        self.graph.add_edge(node1, node2, wt, True)
 
     def getNode(self, _id):
         return self.graph.node(_id)

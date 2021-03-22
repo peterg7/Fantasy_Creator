@@ -77,9 +77,9 @@ class DIRECTION(IntFlag):
 class RELATIONSHIP(IntFlag):
     DESCENDANT = 42
     SIBLING = 43
-    PARENT = 44
-    PARTNER = 45
-
+    PARTNER = 44
+    PARENT = 45
+    
 @unique
 class REL_TREE_POS(IntFlag):
     ''' Enum class to store the node's position relative to its parent (the

@@ -1153,10 +1153,14 @@ class Tree(qtc.QObject):
         else:
             return self.families_db.get(where('fam_name') == 'None')
     
-    
+    ##--------------------------- View Filtering --------------------------##
+
+    def mergeFamilies(self, families):
+        return
+
+
 
     # TODO: combine or just organize these two methods
-    ##--------------------------- View Filtering --------------------------##
     def filterKingdoms(self, kingdom_record, filter_state):
         filtered_chars = self.character_db.search(where('kingdom_id') == kingdom_record['kingdom_id'])
         if filtered_chars:
