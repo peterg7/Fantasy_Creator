@@ -75,9 +75,9 @@ class DIRECTION(IntFlag):
 
 @unique
 class RELATIONSHIP(IntFlag):
-    DESCENDANT = 42
-    SIBLING = 43
-    PARTNER = 44
+    PARTNER = 42
+    DESCENDANT = 43
+    SIBLING = 44
     PARENT = 45
     
 @unique
