@@ -40,9 +40,9 @@ FAM_RELATIONS = [DESC, SIB, PARTNER, PARENT]
 
 PRINT_ORDER = {k:v for v, k in enumerate(['NONE', 'A', 'ROOT0', 'B', 'FORK0',
                     'FORK2', 'FORK1', 'FORK4', 'FORK3', 'FORK5', 'C', 'D', 
-                    'E', 'FORK7', 'FORK6', 'FORK8', 'F', 'G', 'FORK9', 
-                    'H', 'FORK10', 'I', 'FORK11', 'J'])}
-
+                    'E', 'FORK8', 'FORK7', 'FORK9', 'FORK6', 'F', 'X', 'G', 
+                    'H', 'ROOT1', 'I', 'FORK11', 'FORK10', 'FORK12', 'J', 'Y', 'Z'])}
+TREE_ANCHORS = ['ROOT0']
 OUTPUT = []
 CSV_TABLE = []
 
@@ -68,43 +68,7 @@ class PriorityQ(object):
     def __bool__(self):
         return bool(self._data)
 
-
-def breadth_first_walk(graph, start, end=None, reversed_walk=False):
-    """
-    :param graph: Graph
-    :param start: start node
-    :param end: end node.
-    :param reversed_walk: if True, the BFS traverse the graph backwards.
-    :return: generator for walk.
-
-    To walk all nodes use: `[n for n in g.breadth_first_walk(start)]`
-    """
-    TRAVERSE_ORDER = {NULL: -1, SIB: 1, PARTNER: 0, DESC: 3, PARENT: 2}
-    # TRAVERSE_ORDER = {NULL: 1, FORK: 0, PARTNER: 2, SIB: 3, DESC: 4, PARENT: 5}
-    visited = set([start])
-    q = PriorityQ([(0, start)], key=lambda x: x[0])
-    while q:
-
-        node = q.pop()[1]
-        yield node
-
-        L = graph.nodes(from_node=node) if not reversed_walk else graph.nodes(
-            to_node=node)
-
-        if node == 'NULL':
-            L = L[0]
-
-        for next_node in L:
-            if next_node not in visited:
-                visited.add(next_node)
-                q.push(
-                    (TRAVERSE_ORDER[graph.edge(node, next_node)], next_node))
-
-# TRAVERSE_ORDER = {NULL: 1, FORK: 0, PARTNER: 2, SIB: 4, DESC: 3, PARENT: 5}
-
 # A function used by DFS
-
-
 def DFSUtil(graph, vert, visited):
     # Mark the current node as visited
     # and print it
@@ -124,9 +88,9 @@ def DFSUtil(graph, vert, visited):
     # Recur for all the vertices
     # adjacent to this vertex
     L = graph.nodes(from_node=vert)
-    L.sort(key=lambda x: (graph.edge(vert, x),
-                          graph.node(x)['r_pos'],
-                          graph.node(x)['height']))
+    L.sort(key=lambda x: (graph.node(x)['height'],
+                            graph.edge(vert, x),
+                            graph.node(x)['r_pos']))
     # Dont follow sibling edges
     # L = [x for x in L if graph.edge(vert, x) not in FAM_RELATIONS]
     for neighbour in L:
@@ -149,11 +113,11 @@ def DFS(graph, start):
 
     OUTPUT.sort(key=PRINT_ORDER.get)
 
-    # for x in OUTPUT:
-    #     CSV_TABLE.append(graph.node(x)['g_pos'])
+    for x in OUTPUT:
+        CSV_TABLE.append(graph.node(x)['g_pos'])
 
-    print(*[graph.node(x) for x in OUTPUT], sep='\n')
-    # dump()
+    # print(*[graph.node(x) for x in OUTPUT], sep='\n')
+    dump()
 
 
 def dump():
@@ -292,15 +256,22 @@ def handlePartners(current_node, current_data, partners, graph):
         p_data = graph.node(p_node)
 
         # create new fork between partners
-        graph.add_node(*forkFactory(fork_counter, p_data['r_pos'], height))
-        graph.add_edge(f'FORK{fork_counter}', current_node, PARTNER_FORK, True)
-        graph.add_edge(f'FORK{fork_counter}', p_node, PARTNER_FORK, True)
-        FORKS.add(f'FORK{fork_counter}')
-        fork_counter += 1
+        root_fork_id = f'ROOT{len(ROOTS)}'
+        root_fork = list(forkFactory(fork_counter, p_data['r_pos'], height))
+        root_fork[0] = root_fork_id
+        root_fork[1]['name'] = root_fork_id
+        graph.add_node(root_fork[0], root_fork[1])
+        graph.add_edge(root_fork_id, current_node, PARTNER_FORK, True)
+        graph.add_edge(root_fork_id, p_node, PARTNER_FORK, True)
+        ROOTS.add(root_fork_id)
 
         if children: # WARNING definitely won't work for more than 1 partner as is
-            anchor_fork_data = graph.node(f'FORK{fork_counter-1}')
-            handleChildren(f'FORK{fork_counter-1}', anchor_fork_data, children, graph)
+            handleChildren(root_fork[0], root_fork[1], children, graph)
+
+            # add virtual link to lower node so the child(ren) is/are accessible
+            graph.add_edge(current_node, f'FORK{fork_counter}', VIRTUAL_LINK)
+            graph.add_edge(p_node, f'FORK{fork_counter}', VIRTUAL_LINK)
+
 
         if pos < p_data['r_pos']: # moving to the right
             p_data['r_pos'] += 1
@@ -330,7 +301,7 @@ def handleFirstChildren(current_node, current_data, relations, graph):
     fork_counter += 1
 
     # need to keep track of outer most lower nodes for virtual connection with descendants
-    left_connect_fork, right_connect_fork = f'ROOT{inline_drop}', f'ROOT{inline_drop}'
+    left_connect_fork, right_connect_fork = f'FORK{inline_drop}', f'FORK{inline_drop}'
 
     # WARNING: not confident this will work for multiple partners
     for p_node in partners:
@@ -360,16 +331,18 @@ def handleFirstChildren(current_node, current_data, relations, graph):
         graph.add_node(*forkFactory(fork_counter, partner_data['r_pos'], (height+1)*(1/3)))
         graph.add_edge(p_node, f'FORK{fork_counter}', DESC_FORK) 
         graph.add_edge(f'FORK{fork_counter}', p_node, PARENT_FORK)
-        graph.add_edge(f'FORK{fork_counter}', f'ROOT{inline_drop}', PARTNER_FORK, True)
+        graph.add_edge(f'FORK{fork_counter}', f'FORK{inline_drop}', PARTNER_FORK, True)
         FORKS.add(f'FORK{fork_counter}')
         fork_counter += 1
 
-        # add lower fork between the nodes
+        # add lower fork between the nodes and connect lower nodes
         graph.add_node(*forkFactory(fork_counter, (abs(pos - partner_data['r_pos']) // 2), (height+1)*(1/3)))
-        graph.add_edge(f'ROOT{inline_drop}', f'FORK{fork_counter}', PARTNER_FORK, True)
+        graph.add_edge(f'FORK{inline_drop}', f'FORK{fork_counter}', PARTNER_FORK, True)
         graph.add_edge(f'FORK{fork_counter-1}', f'FORK{fork_counter}', PARTNER_FORK, True)
+        graph.add_edge(f'FORK{fork_counter-1}', f'FORK{inline_drop}', PARTNER_FORK, True)
         FORKS.add(f'FORK{fork_counter}')
         fork_counter += 1
+    
     
     # fork_counter-1 now represents the access point to the head of family's dropdown
     # add fork directly below fork_counter
@@ -406,11 +379,11 @@ X_CONSTANT = 10
 Y_CONSTANT = 100
 def calcOffsetRatio(target, previous, graph):
     # For debuggin:
-    if target == 'G':
+    if target == 'H':
         print('here')
 
-    # don't adjust the root
-    if re.match(r'ROOT\d*', target):
+    # don't adjust the anchors
+    if target in TREE_ANCHORS:
         return
 
     data = graph.node(target)
@@ -433,47 +406,49 @@ def calcOffsetRatio(target, previous, graph):
     if not sub_level_size % 2: # need to account for "empty" fork
          sub_level_size += 1
     
-    
+    # deal with roots
+    if match := re.search(r"ROOT\d*", r"(?=(" + "|".join(neighbors) + "|" + target + r"))"):
+        # first priority is determine reference from an anchor
+        if match[0] in TREE_ANCHORS:
+            reference_x = graph.node(match[0])['g_pos'][0]
 
-    # first priority is get reference from the root of the tree
-    if match := re.search(r"ROOT\d*", r"(?=(" + "|".join(neighbors) + r"))"):
-        reference_x = graph.node(match[0])['g_pos'][0]
-    
-    # Detect that these nodes are partners connecting new families
-    # that aren't roots 
-    # TODO: maybe use the nodes families for this distinction?
-    elif (((weight_counter[PARENT_FORK] >= 1 and \
-            neighbors[weights.index(PARENT_FORK)] in FORKES) or \
-            weight_counter[NULL]) and \
-            PARTNER_FORK in weights) or (weight_counter[PARTNER_FORK] == 2 and \
-            neighbors[weights.index(PARTNER_FORK)] not in FORKES):
+        # single exception? might be able to encoporate into another condition (the fork under non-anchor root)
+        elif graph.edge(target, match[0]) == PARENT_FORK:
+            reference_x = graph.node(match[0])['g_pos'][0]
 
-        if weight_counter[PARTNER_FORK] == 1:
-            if weight_counter[PARENT_FORK]:
-                reference_node = neighbors[weights.index(PARENT_FORK)]
-            elif weight_counter[NULL]:
-                reference_node = neighbors[weights.index(PARTNER)]
+        # Detect that these nodes are partners connecting new families
+        # that aren't anchors 
         else:
-            mid_index = sub_level_size // 2 
-
-            if relative_pos == mid_index:
-                reference_pos = mid_index
-            elif relative_pos < mid_index:
-                reference_pos = relative_pos + 1
+            if weight_counter[PARTNER_FORK] == 1:
+                if weight_counter[PARENT_FORK]:
+                    reference_node = neighbors[weights.index(PARENT_FORK)]
+                elif weight_counter[NULL]:
+                    reference_node = neighbors[weights.index(PARTNER)]
             else:
-                reference_pos = relative_pos - 1
-            
-            reference_node = next((x for x in level_neighbors if graph.node(x)['r_pos'] == reference_pos), target)
+                mid_index = sub_level_size // 2 
 
-            if reference_node == target:
-                reference_node = previous
+                if relative_pos == mid_index:
+                    reference_pos = mid_index
+                elif relative_pos < mid_index:
+                    reference_pos = relative_pos + 1
+                else:
+                    reference_pos = relative_pos - 1
+                
+                reference_node = next((x for x in level_neighbors if graph.node(x)['r_pos'] == reference_pos), target)
 
-        reference_x = graph.node(reference_node)['g_pos'][0]
-        new_fam = True
+                if reference_node == target:
+                    reference_node = previous
+
+            reference_x = graph.node(reference_node)['g_pos'][0]
+            new_fam = True
     
-    # check if this node is a descendent (or has a virtual link up to a head of family)
-    elif index := [i for i in range(len(weights)) if weights[i] in [PARENT_FORK, VIRTUAL_LINK]]:
-        reference_node = neighbors[index[0]]
+    # check if this node is a parent (or has a virtual link up to a head of family)
+    # [i for i in range(len(weights)) if weights[i] in [PARENT_FORK, VIRTUAL_LINK]]
+    elif set([PARENT_FORK, VIRTUAL_LINK]).intersection(set(weights)):
+        node_index = weights.index(PARENT_FORK) if PARENT_FORK in weights else -1
+        if node_index < 0:
+            node_index = weights.index(VIRTUAL_LINK)
+        reference_node = neighbors[node_index]
         reference_x = graph.node(reference_node)['g_pos'][0]
 
     # base case
@@ -563,11 +538,15 @@ D = {'name': 'D', 'r_pos': 1, 'height': 1, 'g_pos': (0, 0), 'fam': 1}
 E = {'name': 'E', 'r_pos': 2, 'height': 1, 'g_pos': (0, 0), 'fam': 1}
 
 F = {'name': 'F', 'r_pos': 0, 'height': 2, 'g_pos': (0, 0), 'fam': 1}
-G = {'name': 'G', 'r_pos': 1, 'height': 2, 'g_pos': (0, 0), 'fam': 1}
+X = {'name': 'X', 'r_pos': 1, 'height': 2, 'g_pos': (0, 0), 'fam': 1}
+G = {'name': 'G', 'r_pos': 2, 'height': 2, 'g_pos': (0, 0), 'fam': 1}
 
 H = {'name': 'H', 'r_pos': 0, 'height': 2, 'g_pos': (0, 0), 'fam': 1}
 I = {'name': 'I', 'r_pos': 1, 'height': 2, 'g_pos': (0, 0), 'fam': 3}
 J = {'name': 'J', 'r_pos': 0, 'height': 3, 'g_pos': (0, 0), 'fam': 4}
+Y = {'name': 'Y', 'r_pos': 1, 'height': 3, 'g_pos': (0, 0), 'fam': 4}
+Z = {'name': 'Z', 'r_pos': 2, 'height': 3, 'g_pos': (0, 0), 'fam': 4}
+
 
 g.add_node('NONE', NONE)
 # g.add_node('ENTRY', ENTRY)
@@ -592,6 +571,9 @@ g.add_node('G', G)
 g.add_node('H', H)
 g.add_node('I', I)
 g.add_node('J', J)
+g.add_node('X', X)
+g.add_node('Y', Y)
+g.add_node('Z', Z)
 
 g.add_edge('NONE', 'A', NULL, True)
 g.add_edge('NONE', 'B', NULL, True)
@@ -656,6 +638,7 @@ g.add_edge('C', 'D', SIB, True)
 g.add_edge('C', 'E', SIB, True)
 g.add_edge('C', 'F', DESC)
 g.add_edge('C', 'G', DESC)
+g.add_edge('C', 'X', DESC)
 
 # g.add_edge('D', 'FORK5', PARENT_FORK)
 g.add_edge('D', 'A', PARENT)
@@ -671,20 +654,38 @@ g.add_edge('E', 'H', DESC)
 # g.add_edge('F', 'FORK7', PARENT_FORK)
 g.add_edge('F', 'C', PARENT)
 g.add_edge('F', 'G', SIB, True)
+g.add_edge('F', 'X', SIB, True)
 
 # g.add_edge('G', 'FORK9', PARENT_FORK)
 g.add_edge('G', 'C', PARENT)
+g.add_edge('G', 'X', SIB, True)
+
+g.add_edge('X', 'C', PARENT)
 
 # g.add_edge('H', 'FORK10', PARENT_FORK)
 g.add_edge('H', 'E', PARENT)
 g.add_edge('H', 'I', PARTNER, True)
 g.add_edge('H', 'J', DESC)
+g.add_edge('H', 'Y', DESC)
+g.add_edge('H', 'Z', DESC)
 
 g.add_edge('I', 'J', DESC)
+g.add_edge('I', 'Y', DESC)
+g.add_edge('I', 'Z', DESC)
 
 # g.add_edge('J', 'FORK11', PARENT_FORK)
 g.add_edge('J', 'H', PARENT)
 g.add_edge('J', 'I', PARENT)
+g.add_edge('J', 'Y', SIB, True)
+g.add_edge('J', 'Z', SIB, True)
+
+g.add_edge('Y', 'H', PARENT)
+g.add_edge('Y', 'I', PARENT)
+g.add_edge('Y', 'Z', SIB, True)
+
+g.add_edge('Z', 'H', PARENT)
+g.add_edge('Z', 'I', PARENT)
+
 
 DFS(g, 'NONE')
 # print()
