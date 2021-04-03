@@ -53,7 +53,7 @@ class TreeGraph:
                 return False
             self.position = pos
             return True
-        
+
         def offsetPos(self, offset):
             ''' Setter method to offset the position by adding `offset` to the
             existing value for position.
@@ -64,7 +64,7 @@ class TreeGraph:
             '''
             self.position += offset
 
-        def setRelativePos(self, rel_pos):
+        def setRelPos(self, rel_pos):
             ''' Setter method for the relative position of this node to the
             tree's root. Checks for validity and returns a boolean indicating
             failure/success.
@@ -108,7 +108,7 @@ class TreeGraph:
             '''
             return self.position
         
-        def getRelativePos(self):
+        def getRelPos(self):
             ''' Getter method for this node's relative position to the root
             '''
             return self.relative_pos
@@ -163,16 +163,16 @@ class TreeGraph:
             else:
                 for node in siblings:
                     if node.getPos() < midpoint:
-                        node.setRelativePos(REL_TREE_POS.LEFT)
+                        node.setRelPos(REL_TREE_POS.LEFT)
                     if node.getPos() == midpoint:
-                        node.setRelativePos(REL_TREE_POS.MIDDLE)
+                        node.setRelPos(REL_TREE_POS.MIDDLE)
                     else:
-                        node.setRelativePos(REL_TREE_POS.RIGHT)
+                        node.setRelPos(REL_TREE_POS.RIGHT)
                     self.graph.add_edge(char.getID(), node.getID(), RELATIONSHIP.SIBLING, True)
                 rel_pos = REL_TREE_POS.RIGHT
         
         else:
-            rel_pos = target.getRelativePos()
+            rel_pos = target.getRelPos()
         
         self.graph.node(char.getID()).build(len(siblings)+1, rel_pos, target.getHeight()+1)
         if relation == RELATIONSHIP.PARENT:
@@ -192,7 +192,7 @@ class TreeGraph:
         pos = self.getNumRelations(other_char, RELATIONSHIP.SIBLING) + 1
         # FIXME: need to determine the relative position here, shouldn't always be the
         #       same as other_char
-        mate = self.Node(char.getID(), char, pos, other_char.getRelativePos(), other_char.getHeight())
+        mate = self.Node(char.getID(), char, pos, other_char.getRelPos(), other_char.getHeight())
         self.graph.add_node(char.getID(), mate)
         self.graph.add_edge(char.getID(), other_char.getID(), RELATIONSHIP.PARTNER, True)
 
@@ -294,8 +294,8 @@ class TreeGraph:
     def getFamily(self):
         return [self.graph.node(n[1]).getData() for n in self.nodes()]
 
-    @staticmethod
-    def invalidNode(data, pos):
-        node = TreeGraph.Node(_id=None, data=data, pos=pos, valid=False)
-        return node
+@staticmethod
+def invalidNode(_id, data, pos, height):
+    node = TreeGraph.Node(_id=_id, data=data, pos=pos, ht=height, valid=False)
+    return node
 

@@ -84,11 +84,7 @@ class Family(qtw.QGraphicsObject):
         self._fam_type = family_type
         self.tree_pos = pos if pos else self.ROOT_ANCHOR
 
-        self._display_root_partner = False
-        self._explode = False
-        
         self.tree = TreeGraph(first_gen[0])
-        self.display = FamilyGraphics(self)
 
         self.midpoints = {}
         self.members = HashList()
@@ -441,11 +437,21 @@ class Family(qtw.QGraphicsObject):
                 char.setParent(self)
                 char.setParentItem(self)
 
-    def setGrid(self):
-        self.display.setGrid()
-    
+    # FIXME: shouldn't be building the entire tree again every time a single adjustment is made
+    # XXX: Pass in starting node or keep 'NONE' stored in function?
     def buildTree(self):
-        self.display.buildTree()
+        FamilyGraphics.buildTree(self.tree)
+
+        self.prepareGeometryChange()
+
+        visited = set()
+
+
+
+
+
+
+
     
     def resetFamily(self):
         self.display.resetFamily()
@@ -532,54 +538,5 @@ class Family(qtw.QGraphicsObject):
             self.name_graphic.installSceneEventFilter(self)
     
 
-    def installFilters(self):
-        ''' Simple function to add scene filters to the primary head of family
-        enabling the tree to be moved by grabbing their graphics
-        '''
-        self._first_gen[0].installSceneEventFilter(self)
-        self.setNameDisplay(self._name_display)
-        
-
-    def sceneEventFilter(self, source, event):
-        ''' Creation of a sceneEventFilter to be installed to the head of
-        family resulting in changing mouse images and moving the entire tree
-
-        Args:
-            source - the source of the captured event
-            event - the specific event that was captured
-        '''
-        if event.type() == qtc.QEvent.GraphicsSceneHoverEnter:
-            source.setCursor(qtc.Qt.OpenHandCursor)
-            return False
-        if event.type() == qtc.QEvent.GraphicsSceneMousePress:
-            source.setCursor(qtc.Qt.ClosedHandCursor)
-            return False
-        if event.type() == qtc.QEvent.GraphicsSceneMouseMove:
-            delta = event.pos() - event.lastPos()
-            self.moveBy(delta.x(), delta.y())
-            self.tree_moved.emit()
-            return True
-        if event.type() == qtc.QEvent.GraphicsSceneMouseRelease:
-            source.setCursor(qtc.Qt.OpenHandCursor)
-        return False
-        
-    def boundingRect(self):
-        return self.display.boundingRect()
     
-    def shape(self):
-        return self.display.shape()
-    
-    def paint(self, painter, option, widget):
-        self.display.paint(painter, option, widget)
-
-    def __contains__(self, x):
-        return x in self.members
-
-    def __eq__(self, other):
-        if isinstance(other, uuid.UUID):
-            return self._id == other
-        elif isinstance(other, Family):
-            return self._id == other._id
-        else:
-            return self is other
 
