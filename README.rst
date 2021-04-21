@@ -14,6 +14,8 @@ There is a family tree component, a timeline, a map builder, and a list view
 overview. All of these aspects are interconnected and allow the user to create
 a world within the computer.
 
+Click here <https://youtu.be/xpFB-usZLK8> for a demonstration.
+
 Usage
 =====
 
