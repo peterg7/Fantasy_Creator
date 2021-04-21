@@ -38,15 +38,14 @@ Contributing
 Submit bugs and patches to:
 peter.gish11@gmail.com | 203-918-3845
 
-Known bugs
-==========
-
-
 Future Development
 ==================
-- Name Recommender; ML system used to learn the naming style used in the story and make suggestions
-- Story Generator; ML based system to build a story based on user-entered criteria. Learned from existing fantasy novels
-- World Builder; ML rendered 3D world of the user's 2D drawn map and a 3D family tree from the 2D graphic input
+- *Name Recommender*; ML system used to learn the naming style used in the story and make suggestions
+- *Story Generator*; ML based system to build a story based on user-entered criteria. Learned from existing fantasy novels
+- *World Builder*; ML rendered 3D world of the user's 2D drawn map and a 3D family tree from the 2D graphic input
+
+Known bugs
+==========
 
 Notes
 =====
